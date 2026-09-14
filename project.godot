@@ -14,6 +14,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameManager="*res://scripts/globals/GameManager.gd"
+CharacterManager="*res://scripts/globals/CharacterManager.gd"
 
 [display]
 

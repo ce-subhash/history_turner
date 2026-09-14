@@ -91,6 +91,28 @@ corner_radius_bottom_left = 8
 shadow_color = Color(0, 0, 0, 0.4)
 shadow_size = 8
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ability_bg"]
+bg_color = Color(0.08, 0.1, 0.14, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.75, 0.25, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ability_fg"]
+bg_color = Color(1, 0.8, 0.2, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
@@ -312,3 +334,66 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "RESTART TIMELINE"
+
+[node name="AbilityWidget" type="PanelContainer" parent="HUD/HUDController"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -140.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_ability_bg")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD/HUDController/AbilityWidget"]
+layout_mode = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="RulerNameLabel" type="Label" parent="HUD/HUDController/AbilityWidget/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.8, 0.25, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 12
+text = "JULIUS CAESAR"
+horizontal_alignment = 1
+
+[node name="AbilityButton" type="Button" parent="HUD/HUDController/AbilityWidget/VBoxContainer"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "⚡ TRIGGER ABILITY"
+
+[node name="AbilityNameLabel" type="Label" parent="HUD/HUDController/AbilityWidget/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 13
+text = "Testudo Shield Wall"
+horizontal_alignment = 1
+
+[node name="AbilityStatusLabel" type="Label" parent="HUD/HUDController/AbilityWidget/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 1, 0.5, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 13
+text = "READY [E]"
+horizontal_alignment = 1
+
+[node name="AbilityProgressBar" type="ProgressBar" parent="HUD/HUDController/AbilityWidget/VBoxContainer"]
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_ability_fg")
+max_value = 20.0
+show_percentage = false
+

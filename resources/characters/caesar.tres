@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=2 format=3 uid="uid://b0caesar001"]
+
+[ext_resource type="Script" path="res://scripts/resources/CharacterData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+character_name = "Julius Caesar"
+era_name = "Classical Rome (44 BCE)"
+base_speed_modifier = 1.0
+active_ability_name = "Testudo Shield Wall"
+active_duration = 6.0
+active_cooldown = 20.0
+passive_perk_type = "pax_romana"
+ability_description = "Forms an impenetrable shield wall; immune to all obstacles for 6s."
+passive_description = "Pax Romana: Government favor decay rate is reduced by 15%."
+theme_color = Color(0.95, 0.25, 0.25, 1)
+difficulty_rating = "Easy / Defense"

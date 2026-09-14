@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=2 format=3 uid="uid://b0harriet003"]
+
+[ext_resource type="Script" path="res://scripts/resources/CharacterData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+character_name = "Harriet Tubman"
+era_name = "Underground Railroad (1850)"
+base_speed_modifier = 1.1
+active_ability_name = "Freedom Lantern"
+active_duration = 8.0
+active_cooldown = 25.0
+passive_perk_type = "night_owl"
+ability_description = "Enters ghost mode; phases through hazards and magnetizes all collectibles for 8s."
+passive_description = "Night Owl: Hazard warning indicators and navigation beacons appear 50% earlier."
+theme_color = Color(0.2, 0.8, 0.5, 1)
+difficulty_rating = "Hard / Evasion"

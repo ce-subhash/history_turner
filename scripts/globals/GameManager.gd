@@ -41,6 +41,9 @@ var govt_power: float = 50.0
 ## Decay rate per second for both meters to force active item collection and strategic steering.
 const DECAY_RATE: float = 0.5
 
+## Multiplier applied to govt decay (modified by Pax Romana or other perks).
+var govt_decay_modifier: float = 1.0
+
 
 func _ready() -> void:
 	reset_state()
@@ -64,12 +67,15 @@ func _process(delta: float) -> void:
 
 ## Applies constant baseline decay to both political factions.
 func _apply_meter_decay(delta: float) -> void:
-	var decay: float = DECAY_RATE * delta
-	people_power -= decay
-	govt_power -= decay
+	var people_decay: float = DECAY_RATE * delta
+	var govt_decay: float = DECAY_RATE * govt_decay_modifier * delta
+
+	people_power -= people_decay
+	govt_power -= govt_decay
 
 	power_changed.emit(people_power, govt_power)
 	_evaluate_political_stability()
+
 
 
 ## Checks failure thresholds for popular revolt or royal coup.
