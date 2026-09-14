@@ -8,6 +8,17 @@ const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
+# 3D Character Models
+const CAESAR_MODEL = preload("res://assets/characters/caesar.glb")
+const JOAN_MODEL = preload("res://assets/characters/joan.glb")
+const HARRIET_MODEL = preload("res://assets/characters/harriet.glb")
+
+# 3D Preview Nodes
+var preview_viewport_container: SubViewportContainer
+var preview_viewport: SubViewport
+var preview_model_pivot: Node3D
+var preview_current_model: Node3D
+
 # UI Node References
 @onready var ruler_name_label: Label = $MainLayout/DetailsPanel/Margin/VBox/RulerName
 @onready var era_label: Label = $MainLayout/DetailsPanel/Margin/VBox/EraLabel
@@ -32,6 +43,8 @@ const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
 
 func _ready() -> void:
+	_setup_3d_preview()
+
 	# Wire navigation
 	deploy_button.pressed.connect(_on_deploy_pressed)
 	back_button.pressed.connect(_on_back_pressed)
@@ -61,6 +74,73 @@ func _ready() -> void:
 		_select_starter_character(CAESAR_RES)
 
 
+func _process(delta: float) -> void:
+	if preview_model_pivot:
+		preview_model_pivot.rotation.y += delta * 0.9
+
+
+func _setup_3d_preview() -> void:
+	var vbox = $MainLayout/DetailsPanel/Margin/VBox
+	preview_viewport_container = SubViewportContainer.new()
+	preview_viewport_container.name = "PreviewContainer"
+	preview_viewport_container.custom_minimum_size = Vector2(0, 180)
+	preview_viewport_container.stretch = true
+	preview_viewport_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(preview_viewport_container)
+	vbox.move_child(preview_viewport_container, 0)
+
+	preview_viewport = SubViewport.new()
+	preview_viewport.name = "PreviewSubViewport"
+	preview_viewport.transparent_bg = true
+	preview_viewport.handle_input_locally = false
+	preview_viewport.size = Vector2i(260, 180)
+	preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	preview_viewport_container.add_child(preview_viewport)
+
+	# Camera looking slightly down at character
+	var cam = Camera3D.new()
+	cam.position = Vector3(0.0, 1.05, 2.5)
+	cam.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+	cam.fov = 38.0
+	preview_viewport.add_child(cam)
+
+	# Key Light
+	var dir_light = DirectionalLight3D.new()
+	dir_light.rotation_degrees = Vector3(-25.0, 35.0, 0.0)
+	dir_light.light_color = Color(1.0, 0.95, 0.9)
+	dir_light.light_energy = 1.4
+	preview_viewport.add_child(dir_light)
+
+	# Fill Light
+	var fill_light = OmniLight3D.new()
+	fill_light.position = Vector3(0.0, 1.8, 1.2)
+	fill_light.light_color = Color(0.7, 0.85, 1.0)
+	fill_light.light_energy = 1.0
+	fill_light.omni_range = 6.0
+	preview_viewport.add_child(fill_light)
+
+	# Rotating Model Pivot
+	preview_model_pivot = Node3D.new()
+	preview_model_pivot.name = "ModelPivot"
+	preview_model_pivot.rotation_degrees.y = 180.0
+	preview_viewport.add_child(preview_model_pivot)
+
+	# Pedestal
+	var pedestal = MeshInstance3D.new()
+	var cyl = CylinderMesh.new()
+	cyl.top_radius = 0.55
+	cyl.bottom_radius = 0.60
+	cyl.height = 0.08
+	pedestal.mesh = cyl
+	pedestal.position = Vector3(0.0, -0.04, 0.0)
+	var ped_mat = StandardMaterial3D.new()
+	ped_mat.albedo_color = Color(0.12, 0.14, 0.2)
+	ped_mat.metallic = 0.8
+	ped_mat.roughness = 0.3
+	pedestal.material_override = ped_mat
+	preview_model_pivot.add_child(pedestal)
+
+
 func _select_starter_character(res: Resource) -> void:
 	if CharacterManager:
 		CharacterManager.select_character(res)
@@ -84,20 +164,79 @@ func _select_locked_character(ruler_id: String) -> void:
 		passive_label.text = "Passive: Standard of Conquest"
 		deploy_button.disabled = false
 		deploy_button.text = "⚡ DEPLOY TO TIMELINE"
+		_update_3d_preview(info["name"])
 	else:
 		ability_label.text = "🔒 LOCKED RULER"
 		passive_label.text = "Milestone Requirement: %s" % info["requirement"]
 		deploy_button.disabled = true
 		deploy_button.text = "🔒 MILESTONE NOT MET"
+		_update_3d_preview_locked()
 
 
 func _display_character_info(res: Resource) -> void:
 	if not res:
 		return
-	ruler_name_label.text = res.get("character_name")
+	var char_name: String = res.get("character_name")
+	ruler_name_label.text = char_name
 	era_label.text = res.get("era_name")
 	ability_label.text = "Active: %s (%s)" % [res.get("active_ability_name"), res.get("ability_description")]
 	passive_label.text = "Passive: %s" % res.get("passive_description")
+	_update_3d_preview(char_name)
+
+
+func _update_3d_preview(char_name: String) -> void:
+	if not preview_model_pivot:
+		return
+
+	if preview_current_model and is_instance_valid(preview_current_model):
+		preview_current_model.queue_free()
+		preview_current_model = null
+
+	var model_scene: PackedScene = CAESAR_MODEL
+	match char_name:
+		"Julius Caesar":
+			model_scene = CAESAR_MODEL
+		"Joan of Arc":
+			model_scene = JOAN_MODEL
+		"Harriet Tubman":
+			model_scene = HARRIET_MODEL
+		_:
+			model_scene = CAESAR_MODEL
+
+	if model_scene:
+		preview_current_model = model_scene.instantiate()
+		preview_model_pivot.add_child(preview_current_model)
+
+		# Add dynamic lantern illumination for Harriet Tubman
+		if char_name == "Harriet Tubman":
+			var r_arm = preview_current_model.find_child("RightArm", true, false)
+			if r_arm:
+				var lantern_light = OmniLight3D.new()
+				lantern_light.name = "PreviewLanternLight"
+				lantern_light.light_color = Color(1.0, 0.78, 0.35)
+				lantern_light.light_energy = 2.8
+				lantern_light.omni_range = 8.0
+				lantern_light.position = Vector3(0.0, -0.65, 0.12)
+				r_arm.add_child(lantern_light)
+
+
+func _update_3d_preview_locked() -> void:
+	if not preview_model_pivot:
+		return
+
+	if preview_current_model and is_instance_valid(preview_current_model):
+		preview_current_model.queue_free()
+		preview_current_model = null
+
+	preview_current_model = CAESAR_MODEL.instantiate()
+	preview_model_pivot.add_child(preview_current_model)
+
+	var locked_mat = StandardMaterial3D.new()
+	locked_mat.albedo_color = Color(0.1, 0.12, 0.15, 1.0)
+	locked_mat.metallic = 0.5
+	locked_mat.roughness = 0.8
+	for child in preview_current_model.find_children("*", "MeshInstance3D", true, false):
+		(child as MeshInstance3D).material_override = locked_mat
 
 
 func _refresh_locked_rulers() -> void:

@@ -6,6 +6,10 @@ extends CharacterBody3D
 const CharacterDataScript = preload("res://scripts/resources/CharacterData.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 
+const CAESAR_MODEL = preload("res://assets/characters/caesar.glb")
+const JOAN_MODEL = preload("res://assets/characters/joan.glb")
+const HARRIET_MODEL = preload("res://assets/characters/harriet.glb")
+
 # --- Constants & Configuration ---
 const LANE_LEFT: float = -2.5
 const LANE_CENTER: float = 0.0
@@ -55,6 +59,17 @@ var tesla_magnet_timer: float = 0.0
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
 
+# Procedural 3D Character Model Rig & Animation
+var current_model_root: Node3D = null
+var left_arm_node: Node3D = null
+var right_arm_node: Node3D = null
+var left_leg_node: Node3D = null
+var right_leg_node: Node3D = null
+var torso_node: Node3D = null
+var cape_node: Node3D = null
+var lantern_light: OmniLight3D = null
+var run_anim_time: float = 0.0
+
 # --- Node References ---
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual_model: Node3D = $VisualModel
@@ -84,6 +99,8 @@ func _ready() -> void:
 		CharacterManager.character_selected.connect(_on_character_selected)
 		if CharacterManager.active_character:
 			_apply_character_visuals(CharacterManager.active_character)
+		else:
+			_apply_character_visuals(null)
 
 
 func _init_collision_cache() -> void:
@@ -223,8 +240,7 @@ func slide() -> void:
 
 		if visual_model:
 			var visual_tween = create_tween()
-			visual_tween.tween_property(visual_model, "scale", Vector3(1.1, SLIDE_HEIGHT_RATIO, 1.1), 0.1)
-			visual_tween.parallel().tween_property(visual_model, "position:y", 0.45, 0.1)
+			visual_tween.tween_property(visual_model, "position:y", 0.35, 0.1)
 	else:
 		slide_timer = SLIDE_DURATION
 
@@ -239,8 +255,7 @@ func _end_slide() -> void:
 
 	if visual_model:
 		var visual_tween = create_tween()
-		visual_tween.tween_property(visual_model, "scale", Vector3.ONE, 0.1)
-		visual_tween.parallel().tween_property(visual_model, "position:y", original_shape_y, 0.1)
+		visual_tween.tween_property(visual_model, "position:y", original_shape_y, 0.1)
 
 
 func _set_collision_height(new_height: float) -> void:
@@ -291,6 +306,7 @@ func _physics_process(delta: float) -> void:
 			velocity.y = 0.0
 
 	move_and_slide()
+	_update_procedural_animations(delta)
 
 	# Divine Right Artillery Barrage: Clears upcoming obstacles every 0.6s
 	if is_divine_fever:
@@ -500,16 +516,123 @@ func _on_character_selected(character: Resource) -> void:
 
 
 func _apply_character_visuals(character: Resource) -> void:
-	if visual_model:
-		var body_mesh_inst: MeshInstance3D = visual_model.get_node_or_null("BodyMesh")
-		if body_mesh_inst and character:
-			var theme_col: Color = character.get("theme_color") if character.get("theme_color") else Color.WHITE
-			var mat: StandardMaterial3D = StandardMaterial3D.new()
-			mat.albedo_color = theme_col
-			mat.roughness = 0.3
-			mat.emission_enabled = true
-			mat.emission = theme_col * 0.4
-			body_mesh_inst.material_override = mat
+	if not visual_model:
+		return
+
+	# Hide prototype primitive meshes if present
+	var body_mesh_inst: Node = visual_model.get_node_or_null("BodyMesh")
+	if body_mesh_inst:
+		body_mesh_inst.visible = false
+	var visor_mesh_inst: Node = visual_model.get_node_or_null("VisorMesh")
+	if visor_mesh_inst:
+		visor_mesh_inst.visible = false
+
+	# Remove previous character model
+	if current_model_root and is_instance_valid(current_model_root):
+		current_model_root.queue_free()
+		current_model_root = null
+
+	var char_name: String = character.get("character_name") if character else "Julius Caesar"
+	var model_scene: PackedScene = CAESAR_MODEL
+	match char_name:
+		"Julius Caesar":
+			model_scene = CAESAR_MODEL
+		"Joan of Arc":
+			model_scene = JOAN_MODEL
+		"Harriet Tubman":
+			model_scene = HARRIET_MODEL
+		_:
+			model_scene = CAESAR_MODEL
+
+	if model_scene:
+		current_model_root = model_scene.instantiate()
+		current_model_root.name = "Character3DModel"
+		visual_model.add_child(current_model_root)
+
+		# Cache limb references for procedural runner animation
+		left_arm_node = current_model_root.find_child("LeftArm", true, false)
+		right_arm_node = current_model_root.find_child("RightArm", true, false)
+		left_leg_node = current_model_root.find_child("LeftLeg", true, false)
+		right_leg_node = current_model_root.find_child("RightLeg", true, false)
+		torso_node = current_model_root.find_child("Torso", true, false)
+		cape_node = current_model_root.find_child("Cape", true, false)
+
+		# Attach Freedom Lantern dynamic illumination for Harriet Tubman
+		if char_name == "Harriet Tubman" and right_arm_node:
+			lantern_light = OmniLight3D.new()
+			lantern_light.name = "FreedomLanternLight"
+			lantern_light.light_color = Color(1.0, 0.78, 0.35)
+			lantern_light.light_energy = 3.5
+			lantern_light.omni_range = 14.0
+			lantern_light.omni_attenuation = 1.2
+			lantern_light.position = Vector3(0.0, -0.65, 0.12)
+			right_arm_node.add_child(lantern_light)
+
+
+## Procedurally animates limbs, torso, cape flutter, and lantern sway based on movement state.
+func _update_procedural_animations(delta: float) -> void:
+	if not left_leg_node or not right_leg_node or not left_arm_node or not right_arm_node or not torso_node:
+		return
+
+	if GameManager.is_game_over:
+		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(20.0), 5.0 * delta)
+		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, 0.0, 5.0 * delta)
+		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, 0.0, 5.0 * delta)
+		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, 0.0, 5.0 * delta)
+		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, 0.0, 5.0 * delta)
+		return
+
+	if is_peasant_fever:
+		# Floating superhero flying pose
+		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(-35.0), 8.0 * delta)
+		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(-15.0), 8.0 * delta)
+		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(-15.0), 8.0 * delta)
+		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(45.0), 8.0 * delta)
+		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(45.0), 8.0 * delta)
+		if cape_node:
+			cape_node.rotation.x = deg_to_rad(45.0 + sin(run_anim_time * 3.0) * 8.0)
+		return
+
+	if is_sliding:
+		# Low crouch slide pose
+		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(25.0), 12.0 * delta)
+		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(65.0), 12.0 * delta)
+		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(60.0), 12.0 * delta)
+		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(-35.0), 12.0 * delta)
+		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(-35.0), 12.0 * delta)
+		if cape_node:
+			cape_node.rotation.x = lerp_angle(cape_node.rotation.x, deg_to_rad(-15.0), 12.0 * delta)
+		return
+
+	if not is_on_floor():
+		# Airborne jump tuck pose
+		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(-5.0), 10.0 * delta)
+		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(-35.0), 10.0 * delta)
+		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(-45.0), 10.0 * delta)
+		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(35.0), 10.0 * delta)
+		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(35.0), 10.0 * delta)
+		if cape_node:
+			cape_node.rotation.x = lerp_angle(cape_node.rotation.x, deg_to_rad(30.0), 10.0 * delta)
+		return
+
+	# Ground Running stride cycle
+	var run_freq: float = 12.0 * (GameManager.current_speed / 12.0)
+	run_anim_time += delta * run_freq
+	var stride: float = sin(run_anim_time) * 0.65
+	left_leg_node.rotation.x = stride
+	right_leg_node.rotation.x = -stride
+	var arm_stride: float = -sin(run_anim_time) * 0.55
+	left_arm_node.rotation.x = arm_stride
+	right_arm_node.rotation.x = -arm_stride
+
+	# Forward tilt and running bounce
+	torso_node.rotation.x = deg_to_rad(-7.0)
+	torso_node.position.y = 0.86 + abs(sin(run_anim_time * 2.0)) * 0.04
+
+	# Dynamic cape fluttering
+	if cape_node:
+		var cape_flutter: float = deg_to_rad(18.0 + sin(run_anim_time * 2.2) * 8.0 + (GameManager.current_speed - 12.0) * 1.2)
+		cape_node.rotation.x = cape_flutter
 
 
 func _on_game_over(_reason: String) -> void:
