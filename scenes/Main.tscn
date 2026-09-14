@@ -1,8 +1,9 @@
-[gd_scene load_steps=12 format=3 uid="uid://cxv8ynm8p3qwe"]
+[gd_scene load_steps=18 format=3 uid="uid://cxv8ynm8p3qwe"]
 
 [ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world/TrackManager.gd" id="2_track"]
 [ext_resource type="Script" path="res://scripts/player/PlayerController.gd" id="3_player"]
+[ext_resource type="Script" path="res://scripts/ui/HUDController.gd" id="4_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.12, 0.15, 0.22, 1)
@@ -55,6 +56,41 @@ emission_energy_multiplier = 1.2
 material = SubResource("StandardMaterial3D_visor")
 size = Vector3(0.6, 0.2, 0.3)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
+bg_color = Color(0.1, 0.12, 0.16, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_people_fg"]
+bg_color = Color(0.95, 0.22, 0.28, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_govt_fg"]
+bg_color = Color(0.2, 0.6, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_banner"]
+bg_color = Color(0.08, 0.1, 0.15, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.95, 0.8, 0.2, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_size = 8
+
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
@@ -95,75 +131,184 @@ current = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="MarginContainer" type="MarginContainer" parent="HUD"]
+[node name="HUDController" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_hud")
+
+[node name="TopBar" type="MarginContainer" parent="HUD/HUDController"]
+layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 90.0
+offset_bottom = 80.0
 grow_horizontal = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 24
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 28
 
-[node name="VBoxContainer" type="VBoxContainer" parent="HUD/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="HUD/HUDController/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="PeopleContainer" type="VBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer"]
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="DistanceLabel" type="Label" parent="HUD/MarginContainer/VBoxContainer"]
+[node name="HeaderBox" type="HBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer/PeopleContainer"]
+layout_mode = 2
+
+[node name="PeopleTitle" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/PeopleContainer/HeaderBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.35, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "✊ PEOPLE FAVOR"
+
+[node name="PeopleValue" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/PeopleContainer"]
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "50%"
+
+[node name="PeopleBar" type="ProgressBar" parent="HUD/HUDController/TopBar/HBoxContainer/PeopleContainer"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_people_fg")
+value = 50.0
+show_percentage = false
+
+[node name="CenterContainer" type="VBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="DistanceLabel" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/CenterContainer"]
 layout_mode = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 28
-text = "DISTANCE: 0 m"
+theme_override_font_sizes/font_size = 26
+text = "0 m"
+horizontal_alignment = 1
 
-[node name="SpeedLabel" type="Label" parent="HUD/MarginContainer/VBoxContainer"]
+[node name="SpeedLabel" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/CenterContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.85, 1, 1)
+theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 13
 text = "SPEED: 12.0 m/s"
+horizontal_alignment = 1
 
-[node name="GameOverPanel" type="PanelContainer" parent="HUD"]
+[node name="GovtContainer" type="VBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderBox" type="HBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer/GovtContainer"]
+layout_mode = 2
+
+[node name="GovtTitle" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/GovtContainer/HeaderBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.35, 0.75, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "👑 GOVT FAVOR"
+horizontal_alignment = 2
+
+[node name="GovtValue" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/GovtContainer"]
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "50%"
+horizontal_alignment = 2
+
+[node name="GovtBar" type="ProgressBar" parent="HUD/HUDController/TopBar/HBoxContainer/GovtContainer"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_govt_fg")
+value = 50.0
+show_percentage = false
+
+[node name="NotificationBanner" type="PanelContainer" parent="HUD/HUDController"]
 visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -320.0
+offset_top = 95.0
+offset_right = 320.0
+offset_bottom = 145.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_banner")
+
+[node name="BannerLabel" type="Label" parent="HUD/HUDController/NotificationBanner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 17
+text = "History Shifted: Caesar allied with the Plebs!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GameOverPanel" type="PanelContainer" parent="HUD/HUDController"]
+visible = false
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
+offset_left = -220.0
 offset_top = -140.0
-offset_right = 200.0
+offset_right = 220.0
 offset_bottom = 140.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="HUD/GameOverPanel"]
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD/HUDController/GameOverPanel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="TitleLabel" type="Label" parent="HUD/GameOverPanel/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.25, 0.3, 1)
-theme_override_font_sizes/font_size = 32
-text = "RUN TERMINATED"
+theme_override_font_sizes/font_size = 30
+text = "REGIME COLLAPSED"
 horizontal_alignment = 1
 
-[node name="ReasonLabel" type="Label" parent="HUD/GameOverPanel/VBoxContainer"]
+[node name="ReasonLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
 theme_override_font_sizes/font_size = 16
-text = "Obstacle Collision"
+text = "Overthrown by Popular Revolt!"
 horizontal_alignment = 1
 
-[node name="FinalScoreLabel" type="Label" parent="HUD/GameOverPanel/VBoxContainer"]
+[node name="FinalScoreLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "Distance: 0 meters"
 horizontal_alignment = 1
 
-[node name="RestartButton" type="Button" parent="HUD/GameOverPanel/VBoxContainer"]
+[node name="RestartButton" type="Button" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "RETRY RUN"
+text = "RESTART TIMELINE"
