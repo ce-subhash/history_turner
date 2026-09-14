@@ -1,7 +1,8 @@
 ## PlayerController.gd
 ## Handles 3D character movement, 3-lane horizontal snapping with tweens,
-## vertical jump & gravity, slide mechanics, and Character Roster ability/passive integration.
+## vertical jump & gravity, slide mechanics, Character Abilities, and Phase 4 Fever States.
 extends CharacterBody3D
+
 const CharacterDataScript = preload("res://scripts/resources/CharacterData.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 
@@ -20,9 +21,11 @@ const DEFAULT_HEIGHT: float = 1.8
 const SLIDE_HEIGHT_RATIO: float = 0.5
 const SWIPE_THRESHOLD: float = 40.0
 
-# Magnetism radius for Harriet's Freedom Lantern
+# Magnetism constants
 const MAGNET_RADIUS: float = 14.0
 const MAGNET_PULL_SPEED: float = 22.0
+const FEVER_MAGNET_RADIUS: float = 20.0
+const FEVER_MAGNET_SPEED: float = 32.0
 
 # --- State Variables ---
 var current_lane: int = 0
@@ -39,7 +42,12 @@ var is_ghost_mode: bool = false
 var has_divine_aura: bool = false
 var has_magnet_active: bool = false
 
-# Passive: Zealot's Faith cooldown tracker (prevents infinite re-triggering)
+# Phase 4 Fever State Tracking
+var is_peasant_fever: bool = false
+var is_divine_fever: bool = false
+var artillery_timer: float = 0.0
+
+# Passive: Zealot's Faith tracker
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
 
@@ -48,10 +56,7 @@ var emergency_shield_timer: float = 0.0
 @onready var visual_model: Node3D = $VisualModel
 @onready var camera: Camera3D = $Camera3D
 
-# Dynamic Visual Effects Nodes
 var shield_mesh: MeshInstance3D
-var aura_particles: Node3D
-
 var original_shape_height: float = DEFAULT_HEIGHT
 var original_shape_y: float = 0.9
 
@@ -63,16 +68,16 @@ func _ready() -> void:
 	_setup_camera()
 	_setup_ability_visuals()
 
-	# Connect signals
 	if GameManager:
 		GameManager.game_over.connect(_on_game_over)
 		GameManager.power_changed.connect(_on_power_changed)
+		GameManager.fever_state_started.connect(_on_fever_started)
+		GameManager.fever_state_ended.connect(_on_fever_ended)
 
 	if CharacterManager:
 		CharacterManager.ability_activated.connect(_on_ability_activated)
 		CharacterManager.ability_deactivated.connect(_on_ability_deactivated)
 		CharacterManager.character_selected.connect(_on_character_selected)
-		# Initialize appearance / settings for current active character
 		if CharacterManager.active_character:
 			_apply_character_visuals(CharacterManager.active_character)
 
@@ -100,9 +105,7 @@ func _setup_camera() -> void:
 	camera.current = true
 
 
-## Builds the 3D visual shield / aura node used for active abilities.
 func _setup_ability_visuals() -> void:
-	# Golden / Translucent Shield Dome
 	shield_mesh = MeshInstance3D.new()
 	shield_mesh.name = "AbilityShield"
 	var sphere: SphereMesh = SphereMesh.new()
@@ -126,7 +129,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.is_game_over:
 		return
 
-	# 1. Keyboard Input System: A/D/Arrows for lanes, Space/Up/W jump, S/Down slide, E/F for ability
 	if event is InputEventKey and event.is_pressed() and not event.is_echo():
 		match event.keycode:
 			KEY_A, KEY_LEFT:
@@ -141,7 +143,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				if CharacterManager:
 					CharacterManager.trigger_active_ability()
 
-	# 2. Mobile Touch Input System (Swipes)
 	if event is InputEventScreenTouch:
 		if event.is_pressed():
 			touch_start_pos = event.position
@@ -155,7 +156,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			_process_swipe(swipe_vec)
 			is_touch_active = false
 
-	# Mouse fallback for desktop testing
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.is_pressed():
@@ -201,6 +201,8 @@ func switch_lane(direction: int) -> void:
 
 
 func jump() -> void:
+	if is_peasant_fever:
+		return # Already floating
 	if is_on_floor():
 		if is_sliding:
 			_end_slide()
@@ -208,6 +210,8 @@ func jump() -> void:
 
 
 func slide() -> void:
+	if is_peasant_fever:
+		return # Hovering
 	if not is_sliding:
 		is_sliding = true
 		slide_timer = SLIDE_DURATION
@@ -254,97 +258,127 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		return
 
-	# Handle slide timer
 	if is_sliding:
 		slide_timer -= delta
 		if slide_timer <= 0.0:
 			_end_slide()
 
-	# Handle emergency shield from Zealot's Faith
 	if emergency_shield_timer > 0.0:
 		emergency_shield_timer -= delta
 		if emergency_shield_timer <= 0.0:
 			is_invulnerable = false
 			shield_mesh.visible = false
 
-	# Calculate speed with character base_speed_modifier
+	# Forward Speed
 	var speed_modifier: float = 1.0
 	if CharacterManager and CharacterManager.active_character:
 		speed_modifier = CharacterManager.active_character.base_speed_modifier
 
 	velocity.z = -GameManager.current_speed * speed_modifier
 
-	# Apply gravity
-	if not is_on_floor():
-		velocity.y -= GRAVITY_MULTIPLIER * delta
-	elif velocity.y < 0:
+	# Peasant Revolution Flight Mode: Glide smoothly at Y = 2.4m
+	if is_peasant_fever:
+		position.y = lerpf(position.y, 2.4, 8.0 * delta)
 		velocity.y = 0.0
+	else:
+		if not is_on_floor():
+			velocity.y -= GRAVITY_MULTIPLIER * delta
+		elif velocity.y < 0:
+			velocity.y = 0.0
 
 	move_and_slide()
 
-	# Process active magnetism (Harriet's Freedom Lantern)
-	if has_magnet_active:
+	# Divine Right Artillery Barrage: Clears upcoming obstacles every 0.6s
+	if is_divine_fever:
+		artillery_timer -= delta
+		if artillery_timer <= 0.0:
+			artillery_timer = 0.6
+			_execute_artillery_strike()
+
+	# Process Active Magnetism
+	if has_magnet_active or is_peasant_fever or is_divine_fever:
 		_process_magnetism(delta)
 
-	# Check for obstacle collisions
 	_check_collisions()
 
 
-## Magnetizes nearby Collectibles, drawing them directly to the runner.
+## Pulls relevant collectibles toward player based on active state.
 func _process_magnetism(delta: float) -> void:
-	var collectibles = get_tree().get_nodes_in_group("collectibles")
-	# Also find any Collectible nodes in scene tree
+	var radius: float = FEVER_MAGNET_RADIUS if (is_peasant_fever or is_divine_fever) else MAGNET_RADIUS
+	var speed: float = FEVER_MAGNET_SPEED if (is_peasant_fever or is_divine_fever) else MAGNET_PULL_SPEED
+
 	for node in get_tree().root.find_children("*", "Area3D", true, false):
 		if node is CollectibleScript and not node.is_collected:
+			# Filter in fever mode
+			if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
+				continue
+			if is_divine_fever and node.get("type") != CollectibleScript.CollectibleType.GOVT_CROWN:
+				continue
+
 			var dist: float = global_position.distance_to(node.global_position)
-			if dist <= MAGNET_RADIUS:
+			if dist <= radius:
 				var pull_dir: Vector3 = (global_position + Vector3(0, 0.5, 0) - node.global_position).normalized()
-				node.global_position += pull_dir * MAGNET_PULL_SPEED * delta
+				node.global_position += pull_dir * speed * delta
 
 
-## Detects obstacle collisions, handling Invulnerability, Divine Aura, and Ghost Phase.
+## Divine Right: Royal artillery clears hazards ahead of the player across all 3 lanes.
+func _execute_artillery_strike() -> void:
+	for node in get_tree().root.find_children("Obstacle_*", "StaticBody3D", true, false):
+		var dz: float = node.global_position.z - global_position.z
+		# Destroy obstacles between 5m and 35m in front of player
+		if dz < -5.0 and dz > -35.0:
+			_transmute_obstacle(node as Node3D)
+
+
 func _check_collisions() -> void:
 	for i in range(get_slide_collision_count()):
 		var collision: KinematicCollision3D = get_slide_collision(i)
 		var collider: Object = collision.get_collider()
 
 		if collider and (collider.is_in_group("obstacles") or collider.name.begins_with("Obstacle")):
-			# 1. Caesar: Testudo Shield Wall (Full invulnerability) or Emergency Shield
+			# Peasant Revolution: Smashes obstacles cleanly on contact
+			if is_peasant_fever:
+				_smash_obstacle(collider as Node3D)
+				continue
+
+			# Invulnerability / Testudo
 			if is_invulnerable:
 				_pulse_shield_impact()
 				continue
 
-			# 2. Harriet: Freedom Lantern (Ghost Mode phase-through)
+			# Ghost Mode phase
 			if is_ghost_mode:
 				continue
 
-			# 3. Joan of Arc: Divine Aura (Transmutes obstacle to gold reward)
+			# Divine Aura transmutation
 			if has_divine_aura:
 				_transmute_obstacle(collider as Node3D)
 				continue
 
-			# Standard collision: triggers game over
 			var reason: String = "Crashed into %s" % collider.name
 			GameManager.trigger_game_over(reason)
 			break
 
 
-## Joan of Arc Divine Aura: Converts obstacle into holy relic / gold bonus.
+func _smash_obstacle(obstacle: Node3D) -> void:
+	if not obstacle:
+		return
+	GameManager.add_people_power(3.0)
+	var tween: Tween = create_tween()
+	tween.tween_property(obstacle, "scale", Vector3(1.3, 0.2, 1.3), 0.1)
+	tween.tween_callback(obstacle.queue_free)
+
+
 func _transmute_obstacle(obstacle: Node3D) -> void:
 	if not obstacle:
 		return
-
-	# Add bonus favor to both meters
 	GameManager.add_people_power(4.0)
 	GameManager.add_govt_power(4.0)
-
-	# Visual transmutation effect
 	var tween: Tween = create_tween()
 	tween.tween_property(obstacle, "scale", Vector3.ZERO, 0.2)
 	tween.tween_callback(obstacle.queue_free)
 
 
-## Pulses the shield dome upon absorbing an obstacle impact.
 func _pulse_shield_impact() -> void:
 	if not shield_mesh:
 		return
@@ -353,33 +387,50 @@ func _pulse_shield_impact() -> void:
 	tween.tween_property(shield_mesh, "scale", Vector3.ONE, 0.08)
 
 
+# --- Phase 4 Fever State Callbacks ---
+
+func _on_fever_started(fever_type: String, _duration: float) -> void:
+	shield_mesh.visible = true
+	if fever_type == "peasant_revolution":
+		is_peasant_fever = true
+		shield_mesh.material_override.albedo_color = Color(1.0, 0.2, 0.2, 0.6)
+		shield_mesh.material_override.emission = Color(1.0, 0.15, 0.2)
+	else:
+		is_divine_fever = true
+		shield_mesh.material_override.albedo_color = Color(0.2, 0.6, 1.0, 0.6)
+		shield_mesh.material_override.emission = Color(0.2, 0.5, 1.0)
+
+
+func _on_fever_ended(_fever_type: String) -> void:
+	is_peasant_fever = false
+	is_divine_fever = false
+	if not is_invulnerable and not is_ghost_mode:
+		shield_mesh.visible = false
+
+
 # --- Ability & Perk Event Handlers ---
 
 func _on_ability_activated(character: Resource, _duration: float) -> void:
 	match character.get("character_name"):
 		"Julius Caesar":
-			# Testudo Shield Wall: 6s Invulnerability
 			is_invulnerable = true
 			shield_mesh.visible = true
 			shield_mesh.material_override.albedo_color = Color(1.0, 0.8, 0.2, 0.45)
 			shield_mesh.material_override.emission = Color(1.0, 0.75, 0.2)
 
 		"Joan of Arc":
-			# Divine Aura: 6s Hazard Transmutation
 			has_divine_aura = true
 			shield_mesh.visible = true
 			shield_mesh.material_override.albedo_color = Color(0.9, 0.95, 1.0, 0.5)
 			shield_mesh.material_override.emission = Color(0.95, 0.9, 0.4)
 
 		"Harriet Tubman":
-			# Freedom Lantern: 8s Ghost Mode + Magnet
 			is_ghost_mode = true
 			has_magnet_active = true
 			shield_mesh.visible = true
 			shield_mesh.material_override.albedo_color = Color(0.2, 0.9, 0.6, 0.35)
 			shield_mesh.material_override.emission = Color(0.2, 0.85, 0.5)
 
-			# Ghost visual effect on body
 			if visual_model:
 				visual_model.modulate = Color(1, 1, 1, 0.4)
 
@@ -389,19 +440,18 @@ func _on_ability_deactivated(_character: Resource) -> void:
 	has_divine_aura = false
 	is_ghost_mode = false
 	has_magnet_active = false
-	shield_mesh.visible = false
+	if not is_peasant_fever and not is_divine_fever:
+		shield_mesh.visible = false
 
 	if visual_model:
 		visual_model.modulate = Color(1, 1, 1, 1)
 
 
-## Monitors political meters for Joan of Arc's Zealot's Faith passive.
 func _on_power_changed(people: float, govt: float) -> void:
 	if not CharacterManager or not CharacterManager.active_character:
 		return
 
 	if CharacterManager.active_character.get("passive_perk_type") == "zealots_faith":
-		# If either meter drops below 15% and not already triggered this danger threshold
 		if (people < 15.0 or govt < 15.0) and not zealot_emergency_triggered:
 			zealot_emergency_triggered = true
 			emergency_shield_timer = 4.0
@@ -411,7 +461,6 @@ func _on_power_changed(people: float, govt: float) -> void:
 			shield_mesh.material_override.emission = Color(1.0, 0.2, 0.2)
 			print("[Perk: Zealot's Faith] Emergency 4s Invincibility Shield activated!")
 		elif people >= 25.0 and govt >= 25.0:
-			# Reset trigger once player recovers into safe zone
 			zealot_emergency_triggered = false
 
 
@@ -419,7 +468,6 @@ func _on_character_selected(character: Resource) -> void:
 	_apply_character_visuals(character)
 
 
-## Updates visual theme accents based on active ruler.
 func _apply_character_visuals(character: Resource) -> void:
 	if visual_model:
 		var body_mesh_inst: MeshInstance3D = visual_model.get_node_or_null("BodyMesh")
@@ -440,5 +488,7 @@ func _on_game_over(_reason: String) -> void:
 	is_ghost_mode = false
 	has_divine_aura = false
 	has_magnet_active = false
+	is_peasant_fever = false
+	is_divine_fever = false
 	if shield_mesh:
 		shield_mesh.visible = false

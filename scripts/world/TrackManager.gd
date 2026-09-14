@@ -1,9 +1,15 @@
 ## TrackManager.gd
 ## Procedural 3D endless runner track spawner.
 ## Manages chunk pooling, road mesh generation, procedural obstacles,
-## collectible power tokens (People Fist & Govt Crown), and every 300m Decision Gates.
+## collectible power tokens, Decision Gates, Chronos Fracture Era Shifts, and Boss Encounters.
 extends Node3D
 class_name TrackManager
+
+# --- Preloaded Scripts ---
+const DecisionGateScript = preload("res://scripts/world/DecisionGate.gd")
+const CollectibleScript = preload("res://scripts/world/Collectible.gd")
+const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
+const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
@@ -11,42 +17,44 @@ const ROAD_WIDTH: float = 10.0
 const ROAD_THICKNESS: float = 0.2
 const MAX_ACTIVE_CHUNKS: int = 6
 const LANES: Array[float] = [-2.5, 0.0, 2.5]
+
 const DECISION_GATE_INTERVAL: float = 300.0
+const BOSS_ENCOUNTER_INTERVAL: float = 1500.0
+const ERA_PORTAL_INTERVAL: float = 2000.0
 
-# Colors & Aesthetics (Low-Poly Cyber / Strategic runner palette)
-const COLOR_ROAD: Color = Color(0.18, 0.20, 0.24)
-const COLOR_LANE_MARKER: Color = Color(0.85, 0.90, 0.95, 0.8)
-const COLOR_HURDLE: Color = Color(0.15, 0.75, 0.95)   # Cyan (Jump)
-const COLOR_ARCH: Color = Color(0.95, 0.70, 0.10)     # Amber/Gold (Slide)
-const COLOR_BLOCK: Color = Color(0.95, 0.25, 0.30)    # Crimson/Red (Dodge)
-const COLOR_CURB: Color = Color(0.35, 0.38, 0.44)
+# --- Historical Eras ---
+enum EraTheme {
+	ROMAN_MARBLE,      # Roman Republic (Default)
+	FEUDAL_BAMBOO,     # Feudal Dynasty
+	INDUSTRIAL_STEEL   # Industrial Revolution
+}
 
-# Collectible Colors
-const COLOR_FIST: Color = Color(1.0, 0.22, 0.28)     # Red Sphere (People +5)
-const COLOR_CROWN: Color = Color(0.25, 0.65, 1.0)    # Blue Cube (Govt +5)
+var current_era: EraTheme = EraTheme.ROMAN_MARBLE
 
-# Preloaded Scripts
-const DecisionGateScript = preload("res://scripts/world/DecisionGate.gd")
-const CollectibleScript = preload("res://scripts/world/Collectible.gd")
-
+# Obstacle Type Enum
 enum ObstacleType {
 	NONE,
-	LOW_HURDLE,  # Jump over
-	HIGH_ARCH,   # Slide under
-	SOLID_BLOCK  # Switch lanes
+	LOW_HURDLE,
+	HIGH_ARCH,
+	SOLID_BLOCK
 }
 
 # --- Exported Properties ---
 @export var player_node: CharacterBody3D
+@export var world_env: WorldEnvironment
 
 # --- Internal Pool & Tracking ---
 var active_chunks: Array[Node3D] = []
 var chunk_pool: Array[Node3D] = []
 var next_spawn_z: float = 0.0
 var chunks_spawned_count: int = 0
-var distance_since_last_gate: float = 0.0
 
-# Cached Shared Materials for performance
+var distance_since_last_gate: float = 0.0
+var distance_since_last_boss: float = 0.0
+var distance_since_last_portal: float = 0.0
+var is_boss_active: bool = false
+
+# Cached Materials
 var road_material: StandardMaterial3D
 var lane_marker_material: StandardMaterial3D
 var curb_material: StandardMaterial3D
@@ -63,6 +71,13 @@ func _ready() -> void:
 	if not player_node:
 		player_node = get_tree().get_first_node_in_group("player") as CharacterBody3D
 
+	if not world_env:
+		world_env = get_parent().get_node_or_null("WorldEnvironment") as WorldEnvironment
+
+	if GameManager:
+		GameManager.boss_ended.connect(func(_vic): is_boss_active = false)
+
+	_apply_era_styling(current_era)
 	_spawn_initial_tracks()
 
 
@@ -72,11 +87,9 @@ func _process(_delta: float) -> void:
 
 	var player_z: float = player_node.global_position.z
 
-	# Spawn new chunks ahead of player as they advance along -Z
 	while next_spawn_z > player_z - (MAX_ACTIVE_CHUNKS * CHUNK_LENGTH):
 		_spawn_next_chunk()
 
-	# Recycle / Free chunks that are safely behind the player
 	if active_chunks.size() > 0:
 		var oldest_chunk: Node3D = active_chunks[0]
 		if oldest_chunk.position.z - CHUNK_LENGTH > player_z + 10.0:
@@ -84,80 +97,151 @@ func _process(_delta: float) -> void:
 			active_chunks.remove_at(0)
 
 
-## Initializes shared materials with low-poly stylized shading.
+## Initializes shared materials with baseline properties.
 func _init_materials() -> void:
 	road_material = StandardMaterial3D.new()
-	road_material.albedo_color = COLOR_ROAD
 	road_material.roughness = 0.85
 
 	lane_marker_material = StandardMaterial3D.new()
-	lane_marker_material.albedo_color = COLOR_LANE_MARKER
 	lane_marker_material.emission_enabled = true
-	lane_marker_material.emission = COLOR_LANE_MARKER * 0.4
 	lane_marker_material.roughness = 0.3
 
 	curb_material = StandardMaterial3D.new()
-	curb_material.albedo_color = COLOR_CURB
 	curb_material.roughness = 0.6
 
 	hurdle_material = StandardMaterial3D.new()
-	hurdle_material.albedo_color = COLOR_HURDLE
 	hurdle_material.emission_enabled = true
-	hurdle_material.emission = COLOR_HURDLE * 0.6
 
 	arch_material = StandardMaterial3D.new()
-	arch_material.albedo_color = COLOR_ARCH
 	arch_material.emission_enabled = true
-	arch_material.emission = COLOR_ARCH * 0.6
 
 	block_material = StandardMaterial3D.new()
-	block_material.albedo_color = COLOR_BLOCK
 	block_material.emission_enabled = true
-	block_material.emission = COLOR_BLOCK * 0.5
 
-	# Collectible Materials
+	# Collectibles
 	fist_material = StandardMaterial3D.new()
-	fist_material.albedo_color = COLOR_FIST
+	fist_material.albedo_color = Color(1.0, 0.22, 0.28)
 	fist_material.emission_enabled = true
-	fist_material.emission = COLOR_FIST
+	fist_material.emission = Color(1.0, 0.22, 0.28)
 	fist_material.emission_energy_multiplier = 1.2
-	fist_material.roughness = 0.2
 
 	crown_material = StandardMaterial3D.new()
-	crown_material.albedo_color = COLOR_CROWN
+	crown_material.albedo_color = Color(0.25, 0.65, 1.0)
 	crown_material.emission_enabled = true
-	crown_material.emission = COLOR_CROWN
+	crown_material.emission = Color(0.25, 0.65, 1.0)
 	crown_material.emission_energy_multiplier = 1.2
-	crown_material.roughness = 0.2
 
 
-## Spawns the starting sequence of track chunks.
+## Dynamic Era Morphing: Updates materials, colors, and skybox lighting.
+func _apply_era_styling(era: EraTheme) -> void:
+	current_era = era
+	var era_title: String = ""
+
+	match era:
+		EraTheme.ROMAN_MARBLE:
+			era_title = "Roman Republic"
+			# Polished gray/white marble
+			road_material.albedo_color = Color(0.35, 0.38, 0.42)
+			lane_marker_material.albedo_color = Color(0.95, 0.85, 0.2)
+			lane_marker_material.emission = Color(0.95, 0.8, 0.2) * 0.5
+			curb_material.albedo_color = Color(0.7, 0.72, 0.76)
+			hurdle_material.albedo_color = Color(0.15, 0.75, 0.95)
+			hurdle_material.emission = Color(0.15, 0.75, 0.95) * 0.6
+			arch_material.albedo_color = Color(0.95, 0.7, 0.1)
+			arch_material.emission = Color(0.95, 0.7, 0.1) * 0.6
+			block_material.albedo_color = Color(0.95, 0.25, 0.3)
+			block_material.emission = Color(0.95, 0.25, 0.3) * 0.5
+
+			_update_skybox(Color(0.12, 0.15, 0.22), Color(0.25, 0.30, 0.40), Color(0.18, 0.22, 0.30))
+
+		EraTheme.FEUDAL_BAMBOO:
+			era_title = "Feudal Dynasty"
+			# Mossy dark stone & timber road
+			road_material.albedo_color = Color(0.22, 0.28, 0.20)
+			lane_marker_material.albedo_color = Color(0.95, 0.25, 0.15)
+			lane_marker_material.emission = Color(0.95, 0.25, 0.15) * 0.6
+			curb_material.albedo_color = Color(0.4, 0.3, 0.18)
+			hurdle_material.albedo_color = Color(0.4, 0.8, 0.3)
+			hurdle_material.emission = Color(0.3, 0.75, 0.2) * 0.6
+			arch_material.albedo_color = Color(0.9, 0.2, 0.1) # Torii red
+			arch_material.emission = Color(0.9, 0.2, 0.1) * 0.6
+			block_material.albedo_color = Color(0.7, 0.5, 0.25)
+			block_material.emission = Color(0.7, 0.45, 0.2) * 0.5
+
+			_update_skybox(Color(0.28, 0.12, 0.22), Color(0.55, 0.25, 0.20), Color(0.35, 0.18, 0.20))
+
+		EraTheme.INDUSTRIAL_STEEL:
+			era_title = "Industrial Revolution"
+			# Riveted dark iron & steel
+			road_material.albedo_color = Color(0.12, 0.14, 0.18)
+			lane_marker_material.albedo_color = Color(1.0, 0.75, 0.1)
+			lane_marker_material.emission = Color(1.0, 0.7, 0.1) * 0.8
+			curb_material.albedo_color = Color(0.25, 0.28, 0.32)
+			hurdle_material.albedo_color = Color(0.9, 0.5, 0.1)
+			hurdle_material.emission = Color(0.9, 0.45, 0.1) * 0.7
+			arch_material.albedo_color = Color(0.2, 0.7, 0.8) # Steam pipe cyan
+			arch_material.emission = Color(0.2, 0.7, 0.8) * 0.6
+			block_material.albedo_color = Color(0.85, 0.2, 0.2)
+			block_material.emission = Color(0.85, 0.2, 0.2) * 0.6
+
+			_update_skybox(Color(0.15, 0.14, 0.12), Color(0.35, 0.26, 0.18), Color(0.25, 0.20, 0.15))
+
+	if GameManager:
+		GameManager.era_shifted.emit(era_title)
+
+
+func _update_skybox(top_col: Color, horizon_col: Color, fog_col: Color) -> void:
+	if not world_env or not world_env.environment:
+		return
+	var env: Environment = world_env.environment
+	if env.sky and env.sky.sky_material is ProceduralSkyMaterial:
+		var sky_mat: ProceduralSkyMaterial = env.sky.sky_material
+		var tween: Tween = create_tween()
+		tween.tween_property(sky_mat, "sky_top_color", top_col, 1.5)
+		tween.parallel().tween_property(sky_mat, "sky_horizon_color", horizon_col, 1.5)
+		tween.parallel().tween_property(env, "fog_light_color", fog_col, 1.5)
+
+
 func _spawn_initial_tracks() -> void:
 	next_spawn_z = 15.0
 	distance_since_last_gate = 0.0
+	distance_since_last_boss = 0.0
+	distance_since_last_portal = 0.0
 
 	for i in range(MAX_ACTIVE_CHUNKS):
 		var allow_content: bool = (chunks_spawned_count >= 2)
-		_spawn_chunk_at(next_spawn_z, allow_content, false)
+		_spawn_chunk_at(next_spawn_z, allow_content, false, false)
 		next_spawn_z -= CHUNK_LENGTH
 
 
-## Spawns the next chunk ahead along -Z, checking for Decision Gate interval (every 300m).
 func _spawn_next_chunk() -> void:
 	var allow_content: bool = (chunks_spawned_count >= 2)
 	distance_since_last_gate += CHUNK_LENGTH
+	distance_since_last_boss += CHUNK_LENGTH
+	distance_since_last_portal += CHUNK_LENGTH
 
+	# 1. Chronos Fracture Portal (Every 2,000m)
+	var is_portal_chunk: bool = false
+	if distance_since_last_portal >= ERA_PORTAL_INTERVAL:
+		is_portal_chunk = true
+		distance_since_last_portal = 0.0
+
+	# 2. Decision Gate (Every 300m)
 	var is_decision_chunk: bool = false
-	if distance_since_last_gate >= DECISION_GATE_INTERVAL:
+	if not is_portal_chunk and distance_since_last_gate >= DECISION_GATE_INTERVAL:
 		is_decision_chunk = true
 		distance_since_last_gate = 0.0
 
-	_spawn_chunk_at(next_spawn_z, allow_content, is_decision_chunk)
+	# 3. Boss Encounter (Every 1,500m)
+	if not is_boss_active and distance_since_last_boss >= BOSS_ENCOUNTER_INTERVAL:
+		distance_since_last_boss = 0.0
+		_trigger_boss_encounter()
+
+	_spawn_chunk_at(next_spawn_z, allow_content, is_decision_chunk, is_portal_chunk)
 	next_spawn_z -= CHUNK_LENGTH
 
 
-## Retrieves a pooled chunk or builds a new one, then populates obstacles or Decision Gate.
-func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool) -> void:
+func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool, is_portal_chunk: bool) -> void:
 	var chunk: Node3D
 	if chunk_pool.size() > 0:
 		chunk = chunk_pool.pop_back()
@@ -170,14 +254,38 @@ func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool)
 	active_chunks.append(chunk)
 	chunks_spawned_count += 1
 
-	if is_decision_chunk:
+	if is_portal_chunk:
+		_spawn_temporal_portal(chunk)
+	elif is_decision_chunk:
 		_spawn_decision_gate(chunk)
 	elif allow_content:
 		_populate_chunk_obstacles(chunk)
 		_populate_chunk_collectibles(chunk)
 
 
-## Instantiates a Decision Gate at the center of the specified chunk.
+func _spawn_temporal_portal(chunk: Node3D) -> void:
+	var container: Node3D = chunk.get_node("DynamicElements")
+	var portal: Area3D = TemporalPortalScript.new()
+	portal.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
+	portal.connect("portal_entered", _on_portal_entered)
+	container.add_child(portal)
+
+
+func _on_portal_entered() -> void:
+	# Cycle to next era
+	var next_era = (current_era + 1) % 3
+	_apply_era_styling(next_era)
+
+
+func _trigger_boss_encounter() -> void:
+	if is_boss_active:
+		return
+	is_boss_active = true
+	var boss: Node3D = BossEncounterScript.new()
+	boss.position = Vector3(0.0, 0.0, player_node.global_position.z + 8.0)
+	add_child(boss)
+
+
 func _spawn_decision_gate(chunk: Node3D) -> void:
 	var container: Node3D = chunk.get_node("DynamicElements")
 	var gate: Node3D = DecisionGateScript.new()
@@ -185,7 +293,6 @@ func _spawn_decision_gate(chunk: Node3D) -> void:
 	container.add_child(gate)
 
 
-## Recycles an old chunk by clearing dynamic content and returning to pool.
 func _recycle_chunk(chunk: Node3D) -> void:
 	var dynamic_container: Node3D = chunk.get_node_or_null("DynamicElements")
 	if dynamic_container:
@@ -196,12 +303,10 @@ func _recycle_chunk(chunk: Node3D) -> void:
 	chunk_pool.append(chunk)
 
 
-## Constructs the base track chunk geometry using Primitive / Static meshes.
 func _create_track_chunk() -> Node3D:
 	var chunk: Node3D = Node3D.new()
 	chunk.name = "TrackChunk"
 
-	# Road StaticBody3D for physics collision
 	var static_body: StaticBody3D = StaticBody3D.new()
 	static_body.name = "RoadBody"
 	chunk.add_child(static_body)
@@ -213,7 +318,6 @@ func _create_track_chunk() -> Node3D:
 	collision_shape.position = Vector3(0.0, -ROAD_THICKNESS * 0.5, -CHUNK_LENGTH * 0.5)
 	static_body.add_child(collision_shape)
 
-	# Road Visual Mesh
 	var road_mesh_inst: MeshInstance3D = MeshInstance3D.new()
 	var road_box: BoxMesh = BoxMesh.new()
 	road_box.size = Vector3(ROAD_WIDTH, ROAD_THICKNESS, CHUNK_LENGTH)
@@ -222,7 +326,6 @@ func _create_track_chunk() -> Node3D:
 	road_mesh_inst.position = Vector3(0.0, -ROAD_THICKNESS * 0.5, -CHUNK_LENGTH * 0.5)
 	chunk.add_child(road_mesh_inst)
 
-	# Curbs
 	for side in [-1.0, 1.0]:
 		var curb_inst: MeshInstance3D = MeshInstance3D.new()
 		var curb_mesh: BoxMesh = BoxMesh.new()
@@ -232,7 +335,6 @@ func _create_track_chunk() -> Node3D:
 		curb_inst.position = Vector3(side * (ROAD_WIDTH * 0.5 - 0.2), 0.1, -CHUNK_LENGTH * 0.5)
 		chunk.add_child(curb_inst)
 
-	# 3 Distinct Lane Lines
 	for div_x in [-1.25, 1.25]:
 		for d in range(5):
 			var dash_inst: MeshInstance3D = MeshInstance3D.new()
@@ -243,7 +345,6 @@ func _create_track_chunk() -> Node3D:
 			dash_inst.position = Vector3(div_x, 0.01, -(d * 6.0 + 3.0))
 			chunk.add_child(dash_inst)
 
-	# Lane Runway Dots
 	for lane_x in LANES:
 		for p in range(3):
 			var dot_inst: MeshInstance3D = MeshInstance3D.new()
@@ -254,7 +355,6 @@ func _create_track_chunk() -> Node3D:
 			dot_inst.position = Vector3(lane_x, 0.01, -(p * 10.0 + 5.0))
 			chunk.add_child(dot_inst)
 
-	# Dynamic Elements Container (Obstacles, Collectibles, Decision Gates)
 	var dynamic_container: Node3D = Node3D.new()
 	dynamic_container.name = "DynamicElements"
 	chunk.add_child(dynamic_container)
@@ -262,7 +362,6 @@ func _create_track_chunk() -> Node3D:
 	return chunk
 
 
-## Procedurally places obstacles on a chunk (guaranteeing >= 1 navigable lane).
 func _populate_chunk_obstacles(chunk: Node3D) -> void:
 	var container: Node3D = chunk.get_node("DynamicElements")
 	var z_offsets: Array[float] = [-10.0, -22.0]
@@ -292,14 +391,11 @@ func _populate_chunk_obstacles(chunk: Node3D) -> void:
 			container.add_child(obstacle_node)
 
 
-## Procedurally places floating collectible power tokens on open lanes.
 func _populate_chunk_collectibles(chunk: Node3D) -> void:
 	var container: Node3D = chunk.get_node("DynamicElements")
-	# Check lanes at intermediate Z positions
 	var collectible_z_positions: Array[float] = [-5.0, -16.0, -27.0]
 
 	for z_pos in collectible_z_positions:
-		# 60% spawn chance per zone
 		if randf() > 0.60:
 			continue
 
@@ -312,8 +408,6 @@ func _populate_chunk_collectibles(chunk: Node3D) -> void:
 		container.add_child(token)
 
 
-## Helper: Generates a 3D collectible token instance.
-## People Fist: Red Mesh Sphere | Govt Crown: Blue Mesh Cube.
 func _create_collectible(type: int) -> Area3D:
 	var token: Area3D = CollectibleScript.new()
 	token.set("type", type)
@@ -327,14 +421,12 @@ func _create_collectible(type: int) -> Area3D:
 	var mesh_inst: MeshInstance3D = MeshInstance3D.new()
 
 	if type == CollectibleScript.CollectibleType.PEOPLE_FIST:
-		# Red Mesh Sphere (People Fist)
 		var sphere: SphereMesh = SphereMesh.new()
 		sphere.radius = 0.35
 		sphere.height = 0.7
 		sphere.material = fist_material
 		mesh_inst.mesh = sphere
 	else:
-		# Blue Mesh Cube (Govt Crown)
 		var cube: BoxMesh = BoxMesh.new()
 		cube.size = Vector3(0.6, 0.6, 0.6)
 		cube.material = crown_material
@@ -344,7 +436,6 @@ func _create_collectible(type: int) -> Area3D:
 	return token
 
 
-## Instantiates one of the 3 obstacle archetypes.
 func _create_obstacle(type: ObstacleType) -> Node3D:
 	var obstacle_root: StaticBody3D = StaticBody3D.new()
 	obstacle_root.add_to_group("obstacles")

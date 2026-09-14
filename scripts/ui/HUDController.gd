@@ -1,11 +1,11 @@
 ## HUDController.gd
-## Manages the strategic political balance meters (People vs. Government),
-## animated progress bar transitions, distance tracking, decision banners,
-## and Character Active Ability button with cooldown indicators.
+## Manages the strategic political balance meters, animated progress bars,
+## distance tracking, Decision banners, Character Ability HUD,
+## and Phase 4 Boss Chase countdowns & Fever State banners.
 extends Control
 class_name HUDController
 
-# --- Node References ---
+# --- Top Bar ---
 @onready var people_bar: ProgressBar = $TopBar/HBoxContainer/PeopleContainer/PeopleBar
 @onready var people_label: Label = $TopBar/HBoxContainer/PeopleContainer/PeopleValue
 @onready var govt_bar: ProgressBar = $TopBar/HBoxContainer/GovtContainer/GovtBar
@@ -13,8 +13,19 @@ class_name HUDController
 @onready var distance_label: Label = $TopBar/HBoxContainer/CenterContainer/DistanceLabel
 @onready var speed_label: Label = $TopBar/HBoxContainer/CenterContainer/SpeedLabel
 
+# Banners
 @onready var banner_panel: PanelContainer = $NotificationBanner
 @onready var banner_label: Label = $NotificationBanner/BannerLabel
+
+# Phase 4 Boss Bar
+@onready var boss_bar_panel: PanelContainer = $BossPanel
+@onready var boss_title_label: Label = $BossPanel/HBoxContainer/BossTitleLabel
+@onready var boss_countdown_label: Label = $BossPanel/HBoxContainer/BossCountdownLabel
+@onready var boss_progress_bar: ProgressBar = $BossPanel/HBoxContainer/BossProgressBar
+
+# Phase 4 Fever Banner
+@onready var fever_panel: PanelContainer = $FeverBanner
+@onready var fever_label: Label = $FeverBanner/FeverLabel
 
 # Ability HUD Widget
 @onready var ability_container: Control = $AbilityWidget
@@ -30,16 +41,29 @@ class_name HUDController
 @onready var final_score_label: Label = $GameOverPanel/VBoxContainer/FinalScoreLabel
 @onready var restart_button: Button = $GameOverPanel/VBoxContainer/RestartButton
 
-# Tweens
+# State & Tweens
 var people_tween: Tween = null
 var govt_tween: Tween = null
 var banner_tween: Tween = null
+var fever_tween: Tween = null
+
+var is_boss_chase_active: bool = false
+var boss_timer: float = 0.0
+var boss_max_duration: float = 30.0
+var current_boss_name: String = ""
 
 
 func _ready() -> void:
 	if banner_panel:
 		banner_panel.visible = false
 		banner_panel.modulate.a = 0.0
+
+	if boss_bar_panel:
+		boss_bar_panel.visible = false
+
+	if fever_panel:
+		fever_panel.visible = false
+		fever_panel.modulate.a = 0.0
 
 	if game_over_panel:
 		game_over_panel.visible = false
@@ -49,6 +73,11 @@ func _ready() -> void:
 		GameManager.power_changed.connect(_on_power_changed)
 		GameManager.decision_notification.connect(_on_decision_notification)
 		GameManager.game_over.connect(_on_game_over)
+		GameManager.fever_state_started.connect(_on_fever_started)
+		GameManager.fever_state_ended.connect(_on_fever_ended)
+		GameManager.era_shifted.connect(_on_era_shifted)
+		GameManager.boss_started.connect(_on_boss_started)
+		GameManager.boss_ended.connect(_on_boss_ended)
 		_update_meter_visuals(GameManager.people_power, GameManager.govt_power)
 
 	# Connect to CharacterManager autoload
@@ -57,7 +86,6 @@ func _ready() -> void:
 		CharacterManager.ability_deactivated.connect(_on_ability_deactivated)
 		CharacterManager.cooldown_updated.connect(_on_cooldown_updated)
 		CharacterManager.character_selected.connect(_on_character_selected)
-
 		if CharacterManager.active_character:
 			_update_character_ui(CharacterManager.active_character)
 
@@ -68,7 +96,7 @@ func _ready() -> void:
 		restart_button.pressed.connect(_on_restart_pressed)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not GameManager.is_game_over:
 		var dist_int: int = int(GameManager.distance_traveled)
 		distance_label.text = "%s m" % _format_number_with_commas(dist_int)
@@ -77,12 +105,20 @@ func _process(_delta: float) -> void:
 		# Update active ability duration text if active
 		if CharacterManager and CharacterManager.is_ability_active:
 			ability_status_label.text = "ACTIVE: %.1fs" % CharacterManager.active_timer
-			ability_progress_bar.max_value = CharacterManager.active_character.active_duration
+			ability_progress_bar.max_value = CharacterManager.active_character.get("active_duration")
 			ability_progress_bar.value = CharacterManager.active_timer
+
+		# Handle Boss Survival Countdown Bar
+		if is_boss_chase_active:
+			boss_timer -= delta
+			if boss_timer > 0.0:
+				boss_countdown_label.text = "SURVIVE: %.1fs" % boss_timer
+				boss_progress_bar.value = boss_timer
+			else:
+				boss_countdown_label.text = "VICTORY!"
 
 
 func _on_power_changed(people: float, govt: float) -> void:
-	# 1. Animate People Meter (Red)
 	if people_bar:
 		if people_tween and people_tween.is_running():
 			people_tween.kill()
@@ -96,7 +132,6 @@ func _on_power_changed(people: float, govt: float) -> void:
 		else:
 			people_label.modulate = Color.WHITE
 
-	# 2. Animate Govt Meter (Blue)
 	if govt_bar:
 		if govt_tween and govt_tween.is_running():
 			govt_tween.kill()
@@ -122,7 +157,68 @@ func _update_meter_visuals(people: float, govt: float) -> void:
 		govt_label.text = "%d%%" % int(govt)
 
 
+# --- Phase 4 Events ---
+
+func _on_boss_started(boss_name: String, duration: float) -> void:
+	is_boss_chase_active = true
+	current_boss_name = boss_name
+	boss_timer = duration
+	boss_max_duration = duration
+
+	if boss_bar_panel:
+		boss_bar_panel.visible = true
+		boss_title_label.text = "⚠️ NEMESIS: %s" % boss_name.to_upper()
+		boss_countdown_label.text = "SURVIVE: %.1fs" % duration
+		boss_progress_bar.max_value = duration
+		boss_progress_bar.value = duration
+
+
+func _on_boss_ended(_victory: bool) -> void:
+	is_boss_chase_active = false
+	if boss_bar_panel:
+		var tween: Tween = create_tween()
+		tween.tween_interval(1.5)
+		tween.tween_callback(func(): boss_bar_panel.visible = false)
+
+
+func _on_fever_started(fever_type: String, duration: float) -> void:
+	if not fever_panel or not fever_label:
+		return
+
+	if fever_type == "peasant_revolution":
+		fever_label.text = "⚡ FEVER: PEASANT REVOLUTION! (FLIGHT & SMASH) ⚡"
+		fever_label.modulate = Color(1.0, 0.3, 0.3)
+	else:
+		fever_label.text = "⚡ FEVER: DIVINE RIGHT! (ARTILLERY BARRAGE) ⚡"
+		fever_label.modulate = Color(0.3, 0.8, 1.0)
+
+	fever_panel.visible = true
+
+	if fever_tween and fever_tween.is_running():
+		fever_tween.kill()
+
+	fever_tween = create_tween()
+	fever_panel.modulate.a = 0.0
+	fever_tween.tween_property(fever_panel, "modulate:a", 1.0, 0.3)
+	fever_tween.tween_interval(duration - 0.6)
+	fever_tween.tween_property(fever_panel, "modulate:a", 0.0, 0.3)
+	fever_tween.tween_callback(func(): fever_panel.visible = false)
+
+
+func _on_fever_ended(_fever_type: String) -> void:
+	if fever_panel:
+		fever_panel.visible = false
+
+
+func _on_era_shifted(era_name: String) -> void:
+	_show_custom_banner("EPOCH MORPHED: %s" % era_name.to_upper())
+
+
 func _on_decision_notification(text: String) -> void:
+	_show_custom_banner(text)
+
+
+func _show_custom_banner(text: String) -> void:
 	if not banner_panel or not banner_label:
 		return
 
@@ -223,7 +319,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif (event is InputEventScreenTouch and event.is_pressed()) or (event is InputEventMouseButton and event.is_pressed()):
 			GameManager.restart_game()
 	else:
-		# Quick Ruler Switcher for Phase 3 Testing (Keys 1, 2, 3)
 		if event is InputEventKey and event.is_pressed() and not event.is_echo():
 			match event.keycode:
 				KEY_1:

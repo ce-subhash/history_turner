@@ -1,48 +1,47 @@
 ## GameManager.gd
 ## Autoload Singleton managing global gameplay state, speed progression,
-## distance tracking, and the Political Balance Engine (People vs. Government).
+## distance tracking, the Political Balance Engine, and Phase 4 Fever States.
 extends Node
 
 # --- Signals ---
-## Emitted when the runner encounters a terminal obstacle or fails a run condition.
 signal game_over(reason: String)
-
-## Emitted when the run is reset or restarted.
 signal game_restarted()
-
-## Emitted whenever either political meter changes (for animated HUD updates).
 signal power_changed(people: float, govt: float)
-
-## Emitted when a historic decision is resolved at a Decision Gate.
 signal decision_notification(text: String)
 
+# Phase 4 Signals
+signal fever_state_started(fever_type: String, duration: float)
+signal fever_state_ended(fever_type: String)
+signal era_shifted(era_name: String)
+signal boss_started(boss_name: String, duration: float)
+signal boss_ended(victory: bool)
+
 # --- State Variables ---
-## Current movement speed of the runner along the track (-Z axis).
 @export var current_speed: float = 12.0
-
-## Total distance covered in meters / game units during the active run.
 var distance_traveled: float = 0.0
-
-## Flags whether the current session has ended due to collision or player failure.
 var is_game_over: bool = false
 
-# --- Progression Settings ---
+# Progression Settings
 const INITIAL_SPEED: float = 12.0
 const MAX_SPEED: float = 28.0
 const SPEED_ACCELERATION: float = 0.15
 
-# --- Political Balance Engine State (Phase 2) ---
-## People Favor: Range 0.0 - 100.0. Balanced initially at 50.0.
+# Political Balance Engine State
 var people_power: float = 50.0
-
-## Government Favor: Range 0.0 - 100.0. Balanced initially at 50.0.
 var govt_power: float = 50.0
-
-## Decay rate per second for both meters to force active item collection and strategic steering.
 const DECAY_RATE: float = 0.5
-
-## Multiplier applied to govt decay (modified by Pax Romana or other perks).
 var govt_decay_modifier: float = 1.0
+
+# --- Phase 4: High-Risk Fever States ---
+const FEVER_THRESHOLD: float = 90.0
+const FEVER_RESET_THRESHOLD: float = 80.0
+const FEVER_DURATION: float = 8.0
+
+var is_fever_active: bool = false
+var current_fever_type: String = "" # "peasant_revolution" or "divine_right"
+var fever_timer: float = 0.0
+var can_trigger_peasant_fever: bool = true
+var can_trigger_divine_fever: bool = true
 
 
 func _ready() -> void:
@@ -53,20 +52,26 @@ func _process(delta: float) -> void:
 	if is_game_over:
 		return
 
-	# Accumulate distance traveled based on current velocity
 	distance_traveled += current_speed * delta
 
-	# Gradual speed progression over time up to MAX_SPEED
 	if current_speed < MAX_SPEED:
 		current_speed = minf(current_speed + SPEED_ACCELERATION * delta, MAX_SPEED)
 
-	# Apply political balance meter decay (0.5/sec)
-	# Delta is scaled by Engine.time_scale automatically in _process
+	# Handle active Fever State countdown
+	if is_fever_active:
+		fever_timer -= delta
+		if fever_timer <= 0.0:
+			_end_fever_state()
+
 	_apply_meter_decay(delta)
+	_evaluate_fever_thresholds()
 
 
-## Applies constant baseline decay to both political factions.
 func _apply_meter_decay(delta: float) -> void:
+	# During fever state, decay is suspended to allow maximum glory run
+	if is_fever_active:
+		return
+
 	var people_decay: float = DECAY_RATE * delta
 	var govt_decay: float = DECAY_RATE * govt_decay_modifier * delta
 
@@ -77,42 +82,84 @@ func _apply_meter_decay(delta: float) -> void:
 	_evaluate_political_stability()
 
 
-
-## Checks failure thresholds for popular revolt or royal coup.
 func _evaluate_political_stability() -> void:
 	if is_game_over:
 		return
 
-	# People Power failure conditions
 	if people_power <= 0.0 or people_power >= 100.0:
 		trigger_game_over("Overthrown by Popular Revolt!")
 		return
 
-	# Government Power failure conditions
 	if govt_power <= 0.0 or govt_power >= 100.0:
 		trigger_game_over("Deposed by Royal Coup!")
 		return
 
 
-## Helper: Adds or subtracts People Power and checks stability.
+## Evaluates 90% threshold for Peasant Revolution & Divine Right fever states.
+func _evaluate_fever_thresholds() -> void:
+	if is_fever_active or is_game_over:
+		return
+
+	# Reset trigger eligibility if meter fell below reset threshold
+	if people_power < FEVER_RESET_THRESHOLD:
+		can_trigger_peasant_fever = true
+	if govt_power < FEVER_RESET_THRESHOLD:
+		can_trigger_divine_fever = true
+
+	# 1. Peasant Revolution: People Power >= 90%
+	if people_power >= FEVER_THRESHOLD and people_power < 100.0 and can_trigger_peasant_fever:
+		_start_fever_state("peasant_revolution")
+
+	# 2. Divine Right: Govt Power >= 90%
+	elif govt_power >= FEVER_THRESHOLD and govt_power < 100.0 and can_trigger_divine_fever:
+		_start_fever_state("divine_right")
+
+
+func _start_fever_state(fever_type: String) -> void:
+	is_fever_active = true
+	current_fever_type = fever_type
+	fever_timer = FEVER_DURATION
+
+	if fever_type == "peasant_revolution":
+		can_trigger_peasant_fever = false
+		print("[GameManager] FEVER ACTIVATED: PEASANT REVOLUTION! (8s Flight & Smashing)")
+	else:
+		can_trigger_divine_fever = false
+		print("[GameManager] FEVER ACTIVATED: DIVINE RIGHT! (8s Royal Artillery Barrage)")
+
+	fever_state_started.emit(fever_type, FEVER_DURATION)
+
+
+func _end_fever_state() -> void:
+	if not is_fever_active:
+		return
+	var ended_type: String = current_fever_type
+	is_fever_active = false
+	current_fever_type = ""
+	fever_timer = 0.0
+	print("[GameManager] Fever state ended: %s" % ended_type)
+	fever_state_ended.emit(ended_type)
+
+
 func add_people_power(val: float) -> void:
 	if is_game_over:
 		return
-	people_power = clampf(people_power + val, 0.0, 100.0)
+	# 2x bonus during Peasant Revolution fever
+	var final_val: float = val * (2.0 if (is_fever_active and current_fever_type == "peasant_revolution") else 1.0)
+	people_power = clampf(people_power + final_val, 0.0, 100.0)
 	power_changed.emit(people_power, govt_power)
 	_evaluate_political_stability()
 
 
-## Helper: Adds or subtracts Government Power and checks stability.
 func add_govt_power(val: float) -> void:
 	if is_game_over:
 		return
-	govt_power = clampf(govt_power + val, 0.0, 100.0)
+	var final_val: float = val * (2.0 if (is_fever_active and current_fever_type == "divine_right") else 1.0)
+	govt_power = clampf(govt_power + final_val, 0.0, 100.0)
 	power_changed.emit(people_power, govt_power)
 	_evaluate_political_stability()
 
 
-## Resolves a Decision Gate option, applying meter shifts and triggering notification.
 func apply_decision(people_delta: float, govt_delta: float, notification: String) -> void:
 	if is_game_over:
 		return
@@ -124,30 +171,33 @@ func apply_decision(people_delta: float, govt_delta: float, notification: String
 	_evaluate_political_stability()
 
 
-## Triggers game over state, stops forward progression, resets time scale, and notifies listeners.
 func trigger_game_over(reason: String = "Collision with obstacle") -> void:
 	if is_game_over:
 		return
 
 	is_game_over = true
 	current_speed = 0.0
-	Engine.time_scale = 1.0 # Ensure bullet-time is cleared
+	is_fever_active = false
+	Engine.time_scale = 1.0
 	print("[GameManager] Game Over! Reason: %s | Distance: %.1fm" % [reason, distance_traveled])
 	game_over.emit(reason)
 
 
-## Resets all internal run metrics and political meters back to baseline.
 func reset_state() -> void:
 	is_game_over = false
 	current_speed = INITIAL_SPEED
 	distance_traveled = 0.0
 	people_power = 50.0
 	govt_power = 50.0
+	is_fever_active = false
+	current_fever_type = ""
+	fever_timer = 0.0
+	can_trigger_peasant_fever = true
+	can_trigger_divine_fever = true
 	Engine.time_scale = 1.0
 	power_changed.emit(people_power, govt_power)
 
 
-## Reloads the current scene and resets game metrics for a clean restart.
 func restart_game() -> void:
 	reset_state()
 	game_restarted.emit()
