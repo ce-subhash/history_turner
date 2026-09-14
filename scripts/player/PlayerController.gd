@@ -47,6 +47,10 @@ var is_peasant_fever: bool = false
 var is_divine_fever: bool = false
 var artillery_timer: float = 0.0
 
+# Phase 5 Relic State Tracking
+var cleopatra_asp_used: bool = false
+var tesla_magnet_timer: float = 0.0
+
 # Passive: Zealot's Faith tracker
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
@@ -295,25 +299,34 @@ func _physics_process(delta: float) -> void:
 			artillery_timer = 0.6
 			_execute_artillery_strike()
 
-	# Process Active Magnetism
-	if has_magnet_active or is_peasant_fever or is_divine_fever:
+	# Process Active Magnetism (Harriet, Fever, or Tesla Watch)
+	if has_magnet_active or is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0:
+		if tesla_magnet_timer > 0.0:
+			tesla_magnet_timer -= delta
 		_process_magnetism(delta)
 
 	_check_collisions()
 
 
+## Activates Tesla's Pocket Watch 3.0s magnetism burst.
+func activate_tesla_magnet(duration: float = 3.0) -> void:
+	tesla_magnet_timer = duration
+	print("[Relic: Tesla's Pocket Watch] Activated %.1fs magnetism burst!" % duration)
+
+
 ## Pulls relevant collectibles toward player based on active state.
 func _process_magnetism(delta: float) -> void:
-	var radius: float = FEVER_MAGNET_RADIUS if (is_peasant_fever or is_divine_fever) else MAGNET_RADIUS
-	var speed: float = FEVER_MAGNET_SPEED if (is_peasant_fever or is_divine_fever) else MAGNET_PULL_SPEED
+	var radius: float = FEVER_MAGNET_RADIUS if (is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0) else MAGNET_RADIUS
+	var speed: float = FEVER_MAGNET_SPEED if (is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0) else MAGNET_PULL_SPEED
 
 	for node in get_tree().root.find_children("*", "Area3D", true, false):
 		if node is CollectibleScript and not node.is_collected:
-			# Filter in fever mode
-			if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
-				continue
-			if is_divine_fever and node.get("type") != CollectibleScript.CollectibleType.GOVT_CROWN:
-				continue
+			# Filter in fever mode unless Tesla Watch is pulling everything
+			if tesla_magnet_timer <= 0.0:
+				if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
+					continue
+				if is_divine_fever and node.get("type") != CollectibleScript.CollectibleType.GOVT_CROWN:
+					continue
 
 			var dist: float = global_position.distance_to(node.global_position)
 			if dist <= radius:
@@ -325,7 +338,6 @@ func _process_magnetism(delta: float) -> void:
 func _execute_artillery_strike() -> void:
 	for node in get_tree().root.find_children("Obstacle_*", "StaticBody3D", true, false):
 		var dz: float = node.global_position.z - global_position.z
-		# Destroy obstacles between 5m and 35m in front of player
 		if dz < -5.0 and dz > -35.0:
 			_transmute_obstacle(node as Node3D)
 
@@ -336,28 +348,47 @@ func _check_collisions() -> void:
 		var collider: Object = collision.get_collider()
 
 		if collider and (collider.is_in_group("obstacles") or collider.name.begins_with("Obstacle")):
-			# Peasant Revolution: Smashes obstacles cleanly on contact
 			if is_peasant_fever:
 				_smash_obstacle(collider as Node3D)
 				continue
 
-			# Invulnerability / Testudo
 			if is_invulnerable:
 				_pulse_shield_impact()
 				continue
 
-			# Ghost Mode phase
 			if is_ghost_mode:
 				continue
 
-			# Divine Aura transmutation
 			if has_divine_aura:
 				_transmute_obstacle(collider as Node3D)
 				continue
 
+			# Relic Perk: Cleopatra's Asp (Prevents fatal damage once per run, resets meters to 50%)
+			if has_node("/root/SaveManager"):
+				var sm = get_node("/root/SaveManager")
+				if sm.is_relic_equipped("cleopatra_asp") and not cleopatra_asp_used:
+					cleopatra_asp_used = true
+					_trigger_cleopatra_asp()
+					continue
+
 			var reason: String = "Crashed into %s" % collider.name
 			GameManager.trigger_game_over(reason)
 			break
+
+
+## Cleopatra's Asp: Emergency revival resetting meters to 50/50 with 3.5s invulnerability.
+func _trigger_cleopatra_asp() -> void:
+	GameManager.people_power = 50.0
+	GameManager.govt_power = 50.0
+	GameManager.power_changed.emit(50.0, 50.0)
+	emergency_shield_timer = 3.5
+	is_invulnerable = true
+	shield_mesh.visible = true
+	shield_mesh.material_override.albedo_color = Color(0.2, 0.95, 0.45, 0.6)
+	shield_mesh.material_override.emission = Color(0.2, 0.9, 0.4)
+	if GameManager:
+		GameManager.decision_notification.emit("🐍 CLEOPATRA'S ASP: Fatal collapse averted! Meters stabilized at 50%!")
+
 
 
 func _smash_obstacle(obstacle: Node3D) -> void:

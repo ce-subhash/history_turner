@@ -157,8 +157,14 @@ func _on_approach_entered(body: Node3D) -> void:
 
 	if not is_slowed:
 		is_slowed = true
-		Engine.time_scale = 0.2
-		# Subtle pulse effect on labels
+		var target_scale: float = 0.2
+		# Relic Perk: Napoleon's Telescope (Slows time down by an extra 30%)
+		if has_node("/root/SaveManager"):
+			var sm = get_node("/root/SaveManager")
+			if sm.is_relic_equipped("napoleon_telescope"):
+				target_scale = 0.14
+
+		Engine.time_scale = target_scale
 		_pulse_labels()
 
 
@@ -171,6 +177,9 @@ func _on_lane_selected(body: Node3D, choice: String) -> void:
 	is_slowed = false
 	Engine.time_scale = 1.0
 
+	var sm = get_node_or_null("/root/SaveManager")
+	var cm = get_node_or_null("/root/CharacterManager")
+
 	if choice == "left":
 		GameManager.apply_decision(
 			current_scenario["left_people"],
@@ -178,6 +187,14 @@ func _on_lane_selected(body: Node3D, choice: String) -> void:
 			current_scenario["left_banner"]
 		)
 		_animate_chosen_gate(left_label)
+
+		# Unlock Timeline Codex Card
+		if sm:
+			sm.unlock_card(
+				"card_" + current_scenario["left_title"].to_snake_case(),
+				current_scenario["left_title"],
+				current_scenario["left_banner"]
+			)
 	else:
 		GameManager.apply_decision(
 			current_scenario["right_people"],
@@ -185,6 +202,24 @@ func _on_lane_selected(body: Node3D, choice: String) -> void:
 			current_scenario["right_banner"]
 		)
 		_animate_chosen_gate(right_label)
+
+		# Unlock Timeline Codex Card
+		if sm:
+			sm.unlock_card(
+				"card_" + current_scenario["right_title"].to_snake_case(),
+				current_scenario["right_title"],
+				current_scenario["right_banner"]
+			)
+
+	# Relic Perk: Tesla's Pocket Watch (Magnetizes all collectibles for 3.0s)
+	if sm and sm.is_relic_equipped("tesla_watch"):
+		if body.has_method("activate_tesla_magnet"):
+			body.activate_tesla_magnet(3.0)
+
+	# Track Milestone stat (e.g. Caesar gates passed)
+	if sm and cm and cm.get("active_character"):
+		if cm.get("active_character").get("character_name") == "Julius Caesar":
+			sm.add_stat("caesar_gates_passed", 1)
 
 
 ## Safety callback if player passes gate without clean trigger.

@@ -427,6 +427,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "RESTART TIMELINE"
 
+[node name="MenuButton" type="Button" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "RETURN TO MAIN MENU"
+
+
 [node name="AbilityWidget" type="PanelContainer" parent="HUD/HUDController"]
 layout_mode = 1
 anchors_preset = 3

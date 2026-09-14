@@ -1,7 +1,7 @@
 ## HUDController.gd
 ## Manages the strategic political balance meters, animated progress bars,
 ## distance tracking, Decision banners, Character Ability HUD,
-## and Phase 4 Boss Chase countdowns & Fever State banners.
+## Phase 4 Boss Chase countdowns & Fever State banners, and Phase 5 Codex unlocks & Menu routing.
 extends Control
 class_name HUDController
 
@@ -40,6 +40,7 @@ class_name HUDController
 @onready var game_over_reason_label: Label = $GameOverPanel/VBoxContainer/ReasonLabel
 @onready var final_score_label: Label = $GameOverPanel/VBoxContainer/FinalScoreLabel
 @onready var restart_button: Button = $GameOverPanel/VBoxContainer/RestartButton
+@onready var menu_button: Button = $GameOverPanel/VBoxContainer/MenuButton
 
 # State & Tweens
 var people_tween: Tween = null
@@ -89,11 +90,19 @@ func _ready() -> void:
 		if CharacterManager.active_character:
 			_update_character_ui(CharacterManager.active_character)
 
+	# Connect to SaveManager autoload
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.card_unlocked.connect(_on_card_unlocked)
+
 	if ability_button:
 		ability_button.pressed.connect(_on_ability_button_pressed)
 
 	if restart_button:
 		restart_button.pressed.connect(_on_restart_pressed)
+
+	if menu_button:
+		menu_button.pressed.connect(_on_menu_pressed)
 
 
 func _process(delta: float) -> void:
@@ -155,6 +164,12 @@ func _update_meter_visuals(people: float, govt: float) -> void:
 		govt_bar.value = govt
 	if govt_label:
 		govt_label.text = "%d%%" % int(govt)
+
+
+# --- Phase 5 Timeline Codex Popup ---
+
+func _on_card_unlocked(card: Dictionary) -> void:
+	_show_custom_banner("📜 CODEX DISCOVERY: " + card.get("title", ""))
 
 
 # --- Phase 4 Events ---
@@ -306,9 +321,22 @@ func _on_game_over(reason: String) -> void:
 		game_over_reason_label.text = reason
 		final_score_label.text = "Distance: %s meters" % _format_number_with_commas(int(GameManager.distance_traveled))
 
+	# Phase 5: Check if death condition unlocks tragic timeline card
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if "Popular Revolt" in reason:
+			sm.unlock_card("end_revolt", "The People's Guillotine", "The masses rose up and tore down the imperial palace.")
+		elif "Royal Coup" in reason:
+			sm.unlock_card("end_coup", "The Praetorian Betrayal", "The palace guard liquidated your command at dawn.")
+
 
 func _on_restart_pressed() -> void:
 	GameManager.restart_game()
+
+
+func _on_menu_pressed() -> void:
+	GameManager.reset_state()
+	get_tree().change_scene_to_file("res://scenes/ui/MainMenu.tscn")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -316,8 +344,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.is_pressed() and not event.is_echo():
 			if event.keycode in [KEY_SPACE, KEY_ENTER, KEY_R]:
 				GameManager.restart_game()
+			elif event.keycode == KEY_ESCAPE:
+				_on_menu_pressed()
 		elif (event is InputEventScreenTouch and event.is_pressed()) or (event is InputEventMouseButton and event.is_pressed()):
-			GameManager.restart_game()
+			# On game over, user can tap screen or press buttons
+			pass
 	else:
 		if event is InputEventKey and event.is_pressed() and not event.is_echo():
 			match event.keycode:

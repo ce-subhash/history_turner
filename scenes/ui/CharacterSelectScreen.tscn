@@ -1,0 +1,283 @@
+[gd_scene load_steps=5 format=3 uid="uid://ccharselect001"]
+
+[ext_resource type="Script" path="res://scripts/ui/CharacterSelectScreen.gd" id="1_charselect"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.08, 0.1, 0.15, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.75, 0.25, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(0.12, 0.16, 0.24, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.7, 1, 0.6)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_deploy"]
+bg_color = Color(0.15, 0.65, 0.35, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.4, 0.95, 0.6, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="CharacterSelectScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_charselect")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.07, 0.1, 1)
+
+[node name="Header" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 70.0
+grow_horizontal = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+
+[node name="HBox" type="HBoxContainer" parent="Header"]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="Header/HBox"]
+custom_minimum_size = Vector2(100, 36)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "← BACK"
+
+[node name="TitleLabel" type="Label" parent="Header/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+text = "SELECT RULER & LOADOUT"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Header/HBox"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+
+[node name="MainLayout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 80.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="RosterPanel" type="PanelContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="MainLayout/RosterPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="MainLayout/RosterPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SectionTitle" type="Label" parent="MainLayout/RosterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 17
+text = "HISTORICAL ROSTER"
+horizontal_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="MainLayout/RosterPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="CaesarBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "Julius Caesar\n(Rome)"
+
+[node name="JoanBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "Joan of Arc\n(France)"
+
+[node name="HarrietBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "Harriet Tubman\n(Railroad)"
+
+[node name="NapoleonBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "🔒 Napoleon\n(5 Caesar Gates)"
+
+[node name="CleopatraBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "🔒 Cleopatra\n(50 Favor Tokens)"
+
+[node name="NobunagaBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "🔒 Nobunaga\n(1 Boss Defeated)"
+
+[node name="DetailsPanel" type="PanelContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="MainLayout/DetailsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="MainLayout/DetailsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="RulerName" type="Label" parent="MainLayout/DetailsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
+theme_override_font_sizes/font_size = 24
+text = "JULIUS CAESAR"
+
+[node name="EraLabel" type="Label" parent="MainLayout/DetailsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
+theme_override_font_sizes/font_size = 14
+text = "Classical Rome (44 BCE)"
+
+[node name="HSeparator" type="HSeparator" parent="MainLayout/DetailsPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="AbilityLabel" type="Label" parent="MainLayout/DetailsPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Active: Testudo Shield Wall (Immune for 6s)"
+autowrap_mode = 2
+
+[node name="PassiveLabel" type="Label" parent="MainLayout/DetailsPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.8, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 14
+text = "Passive: Pax Romana (Govt decay reduced by 15%)"
+autowrap_mode = 2
+
+[node name="DeployButton" type="Button" parent="MainLayout/DetailsPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_deploy")
+text = "⚡ DEPLOY TO TIMELINE"
+
+[node name="RelicsPanel" type="PanelContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="MainLayout/RelicsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="MainLayout/RelicsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SectionTitle" type="Label" parent="MainLayout/RelicsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 17
+text = "EQUIPPABLE RELICS"
+horizontal_alignment = 1
+
+[node name="RelicLimitLabel" type="Label" parent="MainLayout/RelicsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.8, 0.2, 1)
+theme_override_font_sizes/font_size = 13
+text = "Equipped Relics: 2 / 2"
+horizontal_alignment = 1
+
+[node name="RelicList" type="VBoxContainer" parent="MainLayout/RelicsPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="AspCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+button_pressed = true
+text = "🐍 Cleopatra's Asp\n   Prevents 1 fatal collapse"
+
+[node name="TelescopeCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+button_pressed = true
+text = "🔭 Napoleon's Telescope\n   +30% Decision Gate Slowdown"
+
+[node name="WatchCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "⏱️ Tesla's Pocket Watch\n   3s Magnetism after Gates"
