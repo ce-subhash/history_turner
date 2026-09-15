@@ -36,7 +36,7 @@ func _ready() -> void:
 func _setup_audio_channels() -> void:
 	bgm_player = AudioStreamPlayer.new()
 	bgm_player.name = "BGMPlayer"
-	bgm_player.volume_db = -6.0
+	bgm_player.volume_db = -18.0
 	add_child(bgm_player)
 
 	for i in range(SFX_CHANNEL_COUNT):
@@ -135,14 +135,9 @@ func _start_bgm() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Keep BGM looping seamlessly
+	# Keep ambient BGM looping seamlessly
 	if bgm_enabled and bgm_player and not bgm_player.playing:
 		bgm_player.play()
-
-	# Slightly scale music pitch with running speed
-	if GameManager and bgm_player:
-		var speed_ratio = clampf(GameManager.current_speed / 12.0, 0.9, 1.35)
-		bgm_player.pitch_scale = speed_ratio
 
 
 # ==============================================================================
@@ -335,49 +330,39 @@ func _create_ability_sound() -> AudioStreamWAV:
 	return _create_stream(samples, sr)
 
 
-## Driving rhythmic background music loop
+## Soothing, atmospheric ambient soundtrack (soft modal ancient chord progression without percussive beats)
 func _create_music_loop() -> AudioStreamWAV:
-	var sr = 22050 # Token & performance optimized sample rate for 4-second loop
-	var bpm = 128.0
-	var beat_sec = 60.0 / bpm
-	var bar_count = 2 # 8 beats total
-	var dur = beat_sec * 4.0 * float(bar_count) # ~3.75 seconds loop
+	var sr = 22050
+	var dur = 6.0 # 6-second seamless atmospheric loop
 	var count = int(sr * dur)
 	var samples: Array[float] = []
 	samples.resize(count)
 
-	var bass_scale = [110.0, 130.81, 146.83, 164.81] # A, C, D, E bass notes
+	# Ancient Roman Dorian chords: D minor9 (D3, F3, A3, C4, E4) to G major6 (G3, B3, D4, E4)
+	var chord_d = [146.83, 174.61, 220.0, 261.63, 329.63]
+	var chord_g = [196.00, 246.94, 293.66, 329.63, 392.00]
 
 	for i in range(count):
 		var t = float(i) / float(sr)
-		var beat_pos = fmod(t, beat_sec)
-		var beat_num = int(t / beat_sec)
+		var progress = t / dur
+		# Smooth continuous loop swell
+		var swell = sin(progress * PI) * 0.5 + 0.5
 
-		# 1. Kick Drum on every beat
-		var kick_env = exp(-(beat_pos / beat_sec) * 12.0)
-		var kick_freq = lerpf(140.0, 45.0, min(1.0, beat_pos * 25.0))
-		var kick = sin(2.0 * PI * kick_freq * beat_pos) * kick_env * 0.55
+		# Crossfade between two ancient chords every 3 seconds
+		var is_first_half = (progress < 0.5)
+		var cur_chord = chord_d if is_first_half else chord_g
+		var sub_t = fmod(t, 3.0) / 3.0
+		var chord_env = sin(sub_t * PI)
 
-		# 2. Snare / Clack on beats 2 and 4
-		var is_snare_beat = (beat_num % 2 == 1)
-		var snare = 0.0
-		if is_snare_beat:
-			var snare_env = exp(-(beat_pos / beat_sec) * 16.0)
-			snare = (randf() * 2.0 - 1.0) * snare_env * 0.35
+		var pad = 0.0
+		for idx in range(cur_chord.size()):
+			var f = cur_chord[idx]
+			var chorus = sin(t * 1.5 + float(idx)) * 0.4
+			pad += sin(2.0 * PI * (f + chorus) * t) * (1.0 / float(cur_chord.size()))
 
-		# 3. Driving 16th-note rhythmic bassline
-		var sixteenth_sec = beat_sec / 4.0
-		var sixteenth_pos = fmod(t, sixteenth_sec)
-		var sixteenth_env = exp(-(sixteenth_pos / sixteenth_sec) * 5.0)
-		var note_idx = int(t / sixteenth_sec) % bass_scale.size()
-		var bass_freq = bass_scale[note_idx]
-		var bass = sin(2.0 * PI * bass_freq * t) * sixteenth_env * 0.35
+		# Gentle warm sub-octave foundation (no kick/snare percussion)
+		var sub_bass = sin(2.0 * PI * 73.42 * t) * 0.2
 
-		# 4. Melodic high shimmer synth
-		var arp_freq = bass_scale[(int(t * 8.0)) % bass_scale.size()] * 4.0
-		var arp_env = (sin(t * 8.0 * PI) * 0.5 + 0.5) * 0.15
-		var arp = sin(2.0 * PI * arp_freq * t) * arp_env
-
-		samples[i] = clampf(kick + snare + bass + arp, -0.95, 0.95)
+		samples[i] = clampf((pad * chord_env * 0.65 + sub_bass * 0.15) * swell * 0.55, -0.85, 0.85)
 
 	return _create_stream(samples, sr, true)

@@ -1,44 +1,56 @@
-[gd_scene load_steps=5 format=3 uid="uid://cmainmenu001"]
+[gd_scene load_steps=8 format=3 uid="uid://cmainmenu001"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+[ext_resource type="Texture2D" path="res://assets/sprites/environment/main_menu_backdrop.png" id="2_bg"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.08, 0.1, 0.15, 0.92)
+[sub_resource type="Curve" id="Curve_particles"]
+_data = [Vector2(0, 0), 0.0, 3.0, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(0.8, 0.8), 0.0, 0.0, 0, 0, Vector2(1, 0), -3.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Gradient" id="Gradient_motes"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 0.85, 0.3, 0, 1, 0.75, 0.2, 0.85, 1, 0.45, 0.1, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_glass_panel"]
+bg_color = Color(0.06, 0.08, 0.13, 0.78)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.85, 0.75, 0.25, 0.8)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-shadow_color = Color(0, 0, 0, 0.6)
-shadow_size = 12
+border_color = Color(0.92, 0.78, 0.28, 0.85)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0, 0, 0, 0.7)
+shadow_size = 20
+shadow_offset = Vector2(0, 6)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
-bg_color = Color(0.12, 0.16, 0.24, 0.9)
+bg_color = Color(0.10, 0.14, 0.22, 0.88)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.35, 0.7, 1, 0.6)
+border_color = Color(0.32, 0.65, 0.95, 0.5)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
-bg_color = Color(0.2, 0.28, 0.42, 1)
+bg_color = Color(0.18, 0.26, 0.42, 0.95)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.95, 0.8, 0.2, 1)
+border_color = Color(1, 0.82, 0.2, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
+shadow_color = Color(0.95, 0.75, 0.2, 0.35)
+shadow_size = 8
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -49,114 +61,212 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="BackdropTexture" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.06, 0.07, 0.1, 1)
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="TopContainer" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -340.0
-offset_top = 24.0
-offset_right = -28.0
-offset_bottom = 84.0
-grow_horizontal = 0
-
-[node name="ActiveRulerLabel" type="Label" parent="TopContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.85, 0.3, 1)
-theme_override_font_sizes/font_size = 15
-text = "Ruler: Julius Caesar"
-horizontal_alignment = 2
-
-[node name="RelicsLabel" type="Label" parent="TopContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 13
-text = "Relics: Cleopatra's Asp | Napoleon's Telescope"
-horizontal_alignment = 2
-
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="VignetteOverlay" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+color = Color(0.03, 0.04, 0.07, 0.48)
 
-[node name="MainPanel" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(480, 440)
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+[node name="TemporalMotes" type="CPUParticles2D" parent="."]
+position = Vector2(640, 720)
+amount = 40
+lifetime = 6.0
+preprocess = 3.0
+emission_shape = 3
+emission_rect_extents = Vector2(640, 20)
+direction = Vector2(0, -1)
+spread = 25.0
+gravity = Vector2(0, -15)
+initial_velocity_min = 25.0
+initial_velocity_max = 65.0
+scale_amount_min = 2.5
+scale_amount_max = 5.5
+scale_amount_curve = SubResource("Curve_particles")
+color_ramp = SubResource("Gradient_motes")
 
-[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/MainPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 28
-theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 28
-
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/MainPanel/MarginContainer"]
-layout_mode = 2
-theme_override_constants/separation = 16
+[node name="MainLayout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 70.0
+offset_top = 45.0
+offset_right = -70.0
+offset_bottom = -45.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 40
 alignment = 1
 
-[node name="Title" type="Label" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
+[node name="LeftMenuColumn" type="VBoxContainer" parent="MainLayout"]
+custom_minimum_size = Vector2(460, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 32
+alignment = 1
+
+[node name="HeaderBox" type="VBoxContainer" parent="MainLayout/LeftMenuColumn"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="LaurelLabel" type="Label" parent="MainLayout/LeftMenuColumn/HeaderBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.82, 0.35, 1)
+theme_override_font_sizes/font_size = 14
+text = "✦   T H E   T E M P O R A L   R I F T   E R A   ✦"
+
+[node name="Title" type="Label" parent="MainLayout/LeftMenuColumn/HeaderBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.3, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 40
 text = "TIMETRACKS"
-horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
+[node name="Subtitle" type="Label" parent="MainLayout/LeftMenuColumn/HeaderBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.3, 0.8, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 4
+theme_override_colors/font_color = Color(0.4, 0.85, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 18
-text = "RULERS & REBELS"
-horizontal_alignment = 1
+text = "🏛️  R U L E R S  &  R E B E L S  ⚔️"
 
-[node name="HSeparator" type="HSeparator" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
+[node name="Spacer" type="Control" parent="MainLayout/LeftMenuColumn"]
+custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 
-[node name="StartButton" type="Button" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 46)
+[node name="MenuPanel" type="PanelContainer" parent="MainLayout/LeftMenuColumn"]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_glass_panel")
+
+[node name="Margin" type="MarginContainer" parent="MainLayout/LeftMenuColumn/MenuPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Buttons" type="VBoxContainer" parent="MainLayout/LeftMenuColumn/MenuPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="QuickRunButton" type="Button" parent="MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_colors/font_hover_color = Color(1, 0.9, 0.4, 1)
 theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
-text = "⚡ CHOOSE RULER & LOADOUT"
+text = "🚀  QUICK LAUNCH RUN"
 
-[node name="QuickRunButton" type="Button" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 42)
+[node name="StartButton" type="Button" parent="MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
+theme_override_colors/font_hover_color = Color(1, 0.9, 0.4, 1)
 theme_override_font_sizes/font_size = 15
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
-text = "🚀 QUICK LAUNCH RUN"
+text = "⚡  CHOOSE RULER & LOADOUT"
 
-[node name="CodexButton" type="Button" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 42)
+[node name="CodexButton" type="Button" parent="MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
+theme_override_colors/font_hover_color = Color(1, 0.9, 0.4, 1)
 theme_override_font_sizes/font_size = 15
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
-text = "📜 TIMELINE CODEX"
+text = "📜  TIMELINE CODEX & CARDS"
 
-[node name="QuitButton" type="Button" parent="CenterContainer/MainPanel/MarginContainer/VBoxContainer"]
+[node name="QuitButton" type="Button" parent="MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons"]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 text = "EXIT"
+
+[node name="RightShowcaseColumn" type="VBoxContainer" parent="MainLayout"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+alignment = 1
+
+[node name="ShowcasePanel" type="PanelContainer" parent="MainLayout/RightShowcaseColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_glass_panel")
+
+[node name="Margin" type="MarginContainer" parent="MainLayout/RightShowcaseColumn/ShowcasePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 22
+
+[node name="Content" type="VBoxContainer" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HeaderBadge" type="HBoxContainer" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+
+[node name="ActiveBadgeLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/HeaderBadge"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.8, 0.3, 1)
+theme_override_font_sizes/font_size = 13
+text = "CURRENT EXPEDITION RULER"
+
+[node name="ActiveRulerLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 24
+text = "Julius Caesar"
+
+[node name="EraLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "🏛️ Classical Rome (44 BCE)"
+
+[node name="HSeparator" type="HSeparator" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+
+[node name="AbilityLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 13
+text = "Active: Testudo Shield Wall (Invulnerability)"
+
+[node name="PassiveLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 0.9)
+theme_override_font_sizes/font_size = 13
+text = "Passive: Pax Romana (-15% Govt Decay)"
+
+[node name="HSeparator2" type="HSeparator" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+
+[node name="RelicsHeader" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.8, 0.3, 1)
+theme_override_font_sizes/font_size = 12
+text = "EQUIPPED RELICS"
+
+[node name="RelicsLabel" type="Label" parent="MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 13
+text = "🔭 Napoleon's Telescope | ⌚ Tesla's Pocket Watch"
+autowrap_mode = 2

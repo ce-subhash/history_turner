@@ -100,6 +100,7 @@ var character_light: OmniLight3D = null
 var active_character_name: String = "Julius Caesar"
 var run_anim_time: float = 0.0
 var banking_tilt: float = 0.0
+var dust_particles: CPUParticles3D = null
 
 # --- Node References ---
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
@@ -117,6 +118,7 @@ func _ready() -> void:
 	_init_collision_cache()
 	_setup_camera()
 	_setup_ability_visuals()
+	_setup_dust_particles()
 
 	if GameManager:
 		GameManager.game_over.connect(_on_game_over)
@@ -152,9 +154,35 @@ func _setup_camera() -> void:
 		camera.name = "Camera3D"
 		add_child(camera)
 
-	camera.position = Vector3(0.0, 3.0, 5.0)
-	camera.rotation_degrees = Vector3(-16.0, 0.0, 0.0)
+	camera.position = Vector3(0.0, 2.3, 4.2)
+	camera.rotation_degrees = Vector3(-12.5, 0.0, 0.0)
+	camera.fov = 72.0
 	camera.current = true
+
+
+func _setup_dust_particles() -> void:
+	dust_particles = CPUParticles3D.new()
+	dust_particles.name = "RunnerDust"
+	dust_particles.amount = 14
+	dust_particles.lifetime = 0.40
+	dust_particles.preprocess = 0.1
+	dust_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	dust_particles.emission_sphere_radius = 0.22
+	dust_particles.direction = Vector3(0.0, 0.5, 1.0)
+	dust_particles.spread = 30.0
+	dust_particles.gravity = Vector3(0.0, -1.5, 0.0)
+	dust_particles.initial_velocity_min = 1.2
+	dust_particles.initial_velocity_max = 3.2
+	dust_particles.scale_amount_min = 0.06
+	dust_particles.scale_amount_max = 0.16
+
+	var dust_mat: StandardMaterial3D = StandardMaterial3D.new()
+	dust_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dust_mat.albedo_color = Color(0.85, 0.78, 0.68, 0.40)
+	dust_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dust_particles.material_override = dust_mat
+	dust_particles.position = Vector3(0.0, 0.05, 0.35)
+	add_child(dust_particles)
 
 
 func _setup_ability_visuals() -> void:
@@ -273,6 +301,11 @@ func jump() -> void:
 func slide() -> void:
 	if is_peasant_fever:
 		return
+
+	# Fast-fall: If sliding while airborne, quickly dive down to the road
+	if not is_on_floor():
+		velocity.y = -JUMP_VELOCITY * 1.5
+
 	if not is_sliding:
 		is_sliding = true
 		slide_timer = SLIDE_DURATION
@@ -304,6 +337,8 @@ func _set_collision_height(new_height: float) -> void:
 		box.size.y = new_height
 
 	collision_shape.position.y = new_height * 0.5
+	if abs(position.x) <= 5.5 and position.y < 0.0:
+		position.y = 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -341,6 +376,13 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+	# Guaranteed road surface clamp: Player can NEVER sink below road while on track lanes
+	if abs(position.x) <= 5.5:
+		if position.y < 0.0:
+			position.y = 0.0
+			if velocity.y < 0.0:
+				velocity.y = 0.0
+
 	# Void Fall Detection: If player falls off the track
 	if position.y < -4.0 and not GameManager.is_game_over:
 		if has_node("/root/AudioManager"):
@@ -349,6 +391,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_update_procedural_animations(delta)
+	_update_dynamic_camera(delta)
 
 	# Divine Right Artillery Barrage: Clears upcoming obstacles every 0.6s
 	if is_divine_fever:
@@ -405,6 +448,10 @@ func _check_collisions() -> void:
 		var collider: Object = collision.get_collider()
 
 		if collider and (collider.is_in_group("obstacles") or collider.name.begins_with("Obstacle")):
+			# If sliding, glide safely underneath high arch obstacles
+			if is_sliding and (collider.name.begins_with("Obstacle_HighArch") or "HighArch" in collider.name):
+				continue
+
 			if is_peasant_fever:
 				_smash_obstacle(collider as Node3D)
 				continue
@@ -578,14 +625,15 @@ func _apply_character_visuals(character: Resource) -> void:
 	var char_data = CHARACTER_SPRITES[active_character_name]
 	var run1_texture: Texture2D = char_data["run1"]
 
-	# Create Sprite3D with real-time 3D shadow casting
+	# Create Sprite3D with clean alpha discard
 	character_sprite = Sprite3D.new()
 	character_sprite.name = "CharacterSprite3D"
 	character_sprite.texture = run1_texture
 	character_sprite.centered = true
 	character_sprite.offset = Vector2.ZERO
 	character_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
-	character_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	character_sprite.alpha_scissor_threshold = 0.5
+	character_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	character_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 
 	# Match sprite height exactly to 1.8m collision capsule
@@ -604,7 +652,7 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_light.omni_range = char_data["light_range"]
 	character_light.omni_attenuation = 1.2
 	character_light.position = char_data["light_offset"]
-	character_light.shadow_enabled = true
+	character_light.shadow_enabled = false
 	character_sprite.add_child(character_light)
 
 
@@ -683,6 +731,29 @@ func _on_game_over(_reason: String) -> void:
 	has_divine_aura = false
 	has_magnet_active = false
 	is_peasant_fever = false
-	is_divine_fever = false
 	if shield_mesh:
 		shield_mesh.visible = false
+
+
+## Dynamically updates camera FOV, banking roll, footstep micro-bobbing, and dust particles.
+func _update_dynamic_camera(delta: float) -> void:
+	if not camera:
+		return
+
+	# 1. Dynamic Speed FOV: widen FOV from 72° to 84° as player accelerates
+	var speed_ratio: float = clampf((GameManager.current_speed - 12.0) / 16.0, 0.0, 1.0)
+	var target_fov: float = lerpf(72.0, 84.0, speed_ratio)
+	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
+
+	# 2. Footstep micro-bobbing synchronized with running stride
+	if is_on_floor() and not is_sliding and not GameManager.is_game_over:
+		camera.position.y = 2.3 + sin(run_anim_time * 2.0) * 0.025
+	else:
+		camera.position.y = lerpf(camera.position.y, 2.3, 6.0 * delta)
+
+	# 3. Dynamic banking roll when switching lanes
+	camera.rotation.z = lerpf(camera.rotation.z, banking_tilt * 0.45, 8.0 * delta)
+
+	# 4. Dust particles emission
+	if dust_particles:
+		dust_particles.emitting = is_on_floor() and not is_peasant_fever and not GameManager.is_game_over

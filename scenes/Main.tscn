@@ -6,10 +6,11 @@
 [ext_resource type="Script" path="res://scripts/ui/HUDController.gd" id="4_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
-sky_top_color = Color(0.12, 0.15, 0.22, 1)
-sky_horizon_color = Color(0.25, 0.30, 0.40, 1)
-ground_bottom_color = Color(0.08, 0.09, 0.12, 1)
-ground_horizon_color = Color(0.20, 0.22, 0.28, 1)
+sky_top_color = Color(0.18, 0.32, 0.58, 1)
+sky_horizon_color = Color(0.95, 0.62, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.08, 0.12, 1)
+ground_horizon_color = Color(0.55, 0.38, 0.22, 1)
+sun_angle_max = 28.0
 
 [sub_resource type="Sky" id="Sky_sky"]
 sky_material = SubResource("ProceduralSkyMaterial_sky")
@@ -18,17 +19,27 @@ sky_material = SubResource("ProceduralSkyMaterial_sky")
 background_mode = 2
 sky = SubResource("Sky_sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.65, 0.70, 0.80, 1)
-ambient_light_energy = 0.6
+ambient_light_color = Color(0.92, 0.82, 0.72, 1)
+ambient_light_energy = 0.85
 tonemap_mode = 2
+tonemap_exposure = 1.05
 glow_enabled = true
-glow_intensity = 0.4
-glow_bloom = 0.2
+glow_intensity = 0.5
+glow_bloom = 0.25
+glow_blend_mode = 0
+ssao_enabled = true
+ssao_radius = 1.6
+ssao_intensity = 2.2
+ssao_power = 1.5
 fog_enabled = true
-fog_light_color = Color(0.18, 0.22, 0.30, 1)
-fog_density = 0.008
-fog_depth_begin = 40.0
-fog_depth_end = 150.0
+fog_light_color = Color(0.85, 0.58, 0.32, 1)
+fog_density = 0.003
+fog_depth_begin = 35.0
+fog_depth_end = 175.0
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.012
+volumetric_fog_albedo = Color(0.95, 0.78, 0.55, 1)
+volumetric_fog_emission = Color(0.15, 0.08, 0.04, 1)
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.45
@@ -57,21 +68,32 @@ material = SubResource("StandardMaterial3D_visor")
 size = Vector3(0.6, 0.2, 0.3)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
-bg_color = Color(0.1, 0.12, 0.16, 0.85)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+bg_color = Color(0.06, 0.08, 0.12, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.72, 0.62, 0.32, 0.75)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_people_fg"]
 bg_color = Color(0.95, 0.22, 0.28, 1)
+border_width_right = 1
+border_color = Color(1, 0.6, 0.6, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_govt_fg"]
-bg_color = Color(0.2, 0.6, 1, 1)
+bg_color = Color(0.2, 0.65, 1, 1)
+border_width_left = 1
+border_color = Color(0.65, 0.88, 1, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -145,9 +167,10 @@ script = ExtResource("1_main")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 15, 0)
-light_color = Color(0.98, 0.95, 0.90, 1)
-light_energy = 1.2
+light_color = Color(1.0, 0.90, 0.76, 1)
+light_energy = 1.8
 shadow_enabled = true
+shadow_bias = 0.03
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_env")

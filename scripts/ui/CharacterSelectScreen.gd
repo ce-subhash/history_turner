@@ -227,7 +227,8 @@ func _update_3d_preview(char_name: String) -> void:
 		preview_sprite.texture = sprite_tex
 		preview_sprite.centered = true
 		preview_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
-		preview_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		preview_sprite.alpha_scissor_threshold = 0.5
+		preview_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		preview_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 		preview_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
 		preview_sprite.pixel_size = 1.8 / float(sprite_tex.get_height())

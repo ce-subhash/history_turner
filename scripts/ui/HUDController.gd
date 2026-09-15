@@ -126,6 +126,19 @@ func _process(delta: float) -> void:
 			else:
 				boss_countdown_label.text = "VICTORY!"
 
+		# Pulse warning alert on critical political meters
+		if GameManager.people_power <= 20.0 or GameManager.people_power >= 80.0:
+			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+			people_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
+		else:
+			people_label.modulate = Color.WHITE
+
+		if GameManager.govt_power <= 20.0 or GameManager.govt_power >= 80.0:
+			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+			govt_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
+		else:
+			govt_label.modulate = Color.WHITE
+
 
 func _on_power_changed(people: float, govt: float) -> void:
 	if people_bar:
@@ -136,10 +149,6 @@ func _on_power_changed(people: float, govt: float) -> void:
 
 	if people_label:
 		people_label.text = "%d%%" % int(people)
-		if people <= 20.0 or people >= 80.0:
-			people_label.modulate = Color(1.0, 0.2, 0.2)
-		else:
-			people_label.modulate = Color.WHITE
 
 	if govt_bar:
 		if govt_tween and govt_tween.is_running():
@@ -149,10 +158,6 @@ func _on_power_changed(people: float, govt: float) -> void:
 
 	if govt_label:
 		govt_label.text = "%d%%" % int(govt)
-		if govt <= 20.0 or govt >= 80.0:
-			govt_label.modulate = Color(1.0, 0.2, 0.2)
-		else:
-			govt_label.modulate = Color.WHITE
 
 
 func _update_meter_visuals(people: float, govt: float) -> void:

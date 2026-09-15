@@ -11,6 +11,10 @@ const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
 const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
 
+const PILLAR_SCN = preload("res://assets/sprites/props/roman_pillar.glb")
+const AQUEDUCT_SCN = preload("res://assets/sprites/props/roman_aqueduct.glb")
+const BRAZIER_SCN = preload("res://assets/sprites/props/curbside_brazier.glb")
+
 const ROAD_ROMAN_TEX = preload("res://assets/sprites/environment/road_roman_pbr.png")
 const COLLECTIBLE_FIST_TEX = preload("res://assets/sprites/props/collectible_fist.png")
 const COLLECTIBLE_CROWN_TEX = preload("res://assets/sprites/props/collectible_crown.png")
@@ -62,6 +66,7 @@ var is_boss_active: bool = false
 # Cached Materials
 var road_material: StandardMaterial3D
 var lane_marker_material: StandardMaterial3D
+var valley_material: StandardMaterial3D
 var curb_material: StandardMaterial3D
 var hurdle_material: StandardMaterial3D
 var arch_material: StandardMaterial3D
@@ -106,15 +111,23 @@ func _process(_delta: float) -> void:
 func _init_materials() -> void:
 	road_material = StandardMaterial3D.new()
 	road_material.albedo_texture = ROAD_ROMAN_TEX
-	road_material.uv1_scale = Vector3(1.0, 3.0, 1.0)
-	road_material.roughness = 0.75
+	road_material.uv1_scale = Vector3(2.5, 7.5, 1.0)
+	road_material.roughness = 0.70
 	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 	lane_marker_material = StandardMaterial3D.new()
+	lane_marker_material.albedo_color = Color(0.95, 0.78, 0.35)
+	lane_marker_material.metallic = 0.85
+	lane_marker_material.roughness = 0.30
 	lane_marker_material.emission_enabled = true
-	lane_marker_material.roughness = 0.3
+	lane_marker_material.emission = Color(0.95, 0.75, 0.3) * 0.35
+
+	valley_material = StandardMaterial3D.new()
+	valley_material.albedo_color = Color(0.14, 0.12, 0.16)
+	valley_material.roughness = 0.95
 
 	curb_material = StandardMaterial3D.new()
+	curb_material.albedo_color = Color(0.80, 0.78, 0.75)
 	curb_material.roughness = 0.6
 
 	hurdle_material = StandardMaterial3D.new()
@@ -267,6 +280,11 @@ func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool,
 	elif is_decision_chunk:
 		_spawn_decision_gate(chunk)
 	elif allow_content:
+		if chunks_spawned_count % 2 == 0:
+			var container: Node3D = chunk.get_node("DynamicElements")
+			var aqueduct = AQUEDUCT_SCN.instantiate()
+			aqueduct.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
+			container.add_child(aqueduct)
 		_populate_chunk_obstacles(chunk)
 		_populate_chunk_collectibles(chunk)
 
@@ -319,49 +337,85 @@ func _create_track_chunk() -> Node3D:
 	static_body.name = "RoadBody"
 	chunk.add_child(static_body)
 
+	var road_col_depth: float = 4.0
 	var collision_shape: CollisionShape3D = CollisionShape3D.new()
 	var box_shape: BoxShape3D = BoxShape3D.new()
-	box_shape.size = Vector3(ROAD_WIDTH, ROAD_THICKNESS, CHUNK_LENGTH)
+	box_shape.size = Vector3(ROAD_WIDTH, road_col_depth, CHUNK_LENGTH)
 	collision_shape.shape = box_shape
-	collision_shape.position = Vector3(0.0, -ROAD_THICKNESS * 0.5, -CHUNK_LENGTH * 0.5)
+	collision_shape.position = Vector3(0.0, -road_col_depth * 0.5, -CHUNK_LENGTH * 0.5)
 	static_body.add_child(collision_shape)
 
 	var road_mesh_inst: MeshInstance3D = MeshInstance3D.new()
 	var road_box: BoxMesh = BoxMesh.new()
-	road_box.size = Vector3(ROAD_WIDTH, ROAD_THICKNESS, CHUNK_LENGTH)
+	road_box.size = Vector3(ROAD_WIDTH, 0.25, CHUNK_LENGTH)
 	road_box.material = road_material
 	road_mesh_inst.mesh = road_box
-	road_mesh_inst.position = Vector3(0.0, -ROAD_THICKNESS * 0.5, -CHUNK_LENGTH * 0.5)
+	road_mesh_inst.position = Vector3(0.0, -0.125, -CHUNK_LENGTH * 0.5)
 	chunk.add_child(road_mesh_inst)
 
+	# 1. Distant Valley Floor (eliminates the empty void underneath)
+	var valley_inst: MeshInstance3D = MeshInstance3D.new()
+	var valley_mesh: BoxMesh = BoxMesh.new()
+	valley_mesh.size = Vector3(140.0, 1.0, CHUNK_LENGTH)
+	valley_mesh.material = valley_material
+	valley_inst.mesh = valley_mesh
+	valley_inst.position = Vector3(0.0, -14.0, -CHUNK_LENGTH * 0.5)
+	chunk.add_child(valley_inst)
+
+	# 2. Roman Marble Curbs
 	for side in [-1.0, 1.0]:
 		var curb_inst: MeshInstance3D = MeshInstance3D.new()
 		var curb_mesh: BoxMesh = BoxMesh.new()
-		curb_mesh.size = Vector3(0.4, 0.4, CHUNK_LENGTH)
+		curb_mesh.size = Vector3(0.45, 0.35, CHUNK_LENGTH)
 		curb_mesh.material = curb_material
 		curb_inst.mesh = curb_mesh
-		curb_inst.position = Vector3(side * (ROAD_WIDTH * 0.5 - 0.2), 0.1, -CHUNK_LENGTH * 0.5)
+		curb_inst.position = Vector3(side * (ROAD_WIDTH * 0.5 - 0.22), 0.1, -CHUNK_LENGTH * 0.5)
 		chunk.add_child(curb_inst)
 
+	# 3. Ancient Bronze Lane Dividers & Marble Inlay Grooves (Replacing modern yellow dashed lines)
 	for div_x in [-1.25, 1.25]:
-		for d in range(5):
-			var dash_inst: MeshInstance3D = MeshInstance3D.new()
-			var dash_mesh: BoxMesh = BoxMesh.new()
-			dash_mesh.size = Vector3(0.12, 0.02, 3.0)
-			dash_mesh.material = lane_marker_material
-			dash_inst.mesh = dash_mesh
-			dash_inst.position = Vector3(div_x, 0.01, -(d * 6.0 + 3.0))
-			chunk.add_child(dash_inst)
+		var groove_inst: MeshInstance3D = MeshInstance3D.new()
+		var groove_mesh: BoxMesh = BoxMesh.new()
+		groove_mesh.size = Vector3(0.06, 0.015, CHUNK_LENGTH)
+		groove_mesh.material = lane_marker_material
+		groove_inst.mesh = groove_mesh
+		groove_inst.position = Vector3(div_x, 0.008, -CHUNK_LENGTH * 0.5)
+		chunk.add_child(groove_inst)
 
-	for lane_x in LANES:
-		for p in range(3):
-			var dot_inst: MeshInstance3D = MeshInstance3D.new()
-			var dot_mesh: BoxMesh = BoxMesh.new()
-			dot_mesh.size = Vector3(0.3, 0.02, 0.3)
-			dot_mesh.material = lane_marker_material
-			dot_inst.mesh = dot_mesh
-			dot_inst.position = Vector3(lane_x, 0.01, -(p * 10.0 + 5.0))
-			chunk.add_child(dot_inst)
+		for s in range(10):
+			var stud_inst: MeshInstance3D = MeshInstance3D.new()
+			var stud_mesh: CylinderMesh = CylinderMesh.new()
+			stud_mesh.top_radius = 0.09
+			stud_mesh.bottom_radius = 0.12
+			stud_mesh.height = 0.035
+			stud_mesh.material = lane_marker_material
+			stud_inst.mesh = stud_mesh
+			stud_inst.position = Vector3(div_x, 0.018, -(s * 3.0 + 1.5))
+			chunk.add_child(stud_inst)
+
+	# 4. Roman Colonnade (Pillars & Fire Braziers along track borders)
+	for side in [-1.0, 1.0]:
+		var col_x: float = side * (ROAD_WIDTH * 0.5 + 1.4)
+		# Fluted Roman Columns
+		for p_i in range(4):
+			var pillar = PILLAR_SCN.instantiate()
+			pillar.position = Vector3(col_x, 0.0, -(p_i * 7.5 + 3.75))
+			chunk.add_child(pillar)
+
+		# Curbside Fire Braziers with warm point lights
+		for b_i in range(2):
+			var brazier = BRAZIER_SCN.instantiate()
+			var b_z: float = -(b_i * 15.0 + 7.5)
+			brazier.position = Vector3(col_x, 0.0, b_z)
+			chunk.add_child(brazier)
+
+			var flame_light = OmniLight3D.new()
+			flame_light.light_color = Color(1.0, 0.65, 0.25)
+			flame_light.light_energy = 1.6
+			flame_light.omni_range = 8.0
+			flame_light.omni_attenuation = 1.4
+			flame_light.position = Vector3(col_x, 1.4, b_z)
+			chunk.add_child(flame_light)
 
 	var dynamic_container: Node3D = Node3D.new()
 	dynamic_container.name = "DynamicElements"
