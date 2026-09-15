@@ -39,11 +39,15 @@ func _on_body_entered(body: Node3D) -> void:
 
 	is_collected = true
 
-	# Apply political balance bonus
+	# Apply political balance bonus and audio
 	if type == CollectibleType.PEOPLE_FIST:
 		GameManager.add_people_power(5.0)
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_collect_fist()
 	else:
 		GameManager.add_govt_power(5.0)
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_collect_crown()
 
 	# Smooth pickup pop animation before queue_free
 	var tween: Tween = create_tween()

@@ -177,6 +177,9 @@ func _on_lane_selected(body: Node3D, choice: String) -> void:
 	is_slowed = false
 	Engine.time_scale = 1.0
 
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_gate()
+
 	var sm = get_node_or_null("/root/SaveManager")
 	var cm = get_node_or_null("/root/CharacterManager")
 

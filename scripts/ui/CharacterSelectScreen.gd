@@ -8,10 +8,10 @@ const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
-# 2.5D Character Sprites
-const CAESAR_SPRITE = preload("res://assets/sprites/characters/caesar_run.png")
-const JOAN_SPRITE = preload("res://assets/sprites/characters/joan_run.png")
-const HARRIET_SPRITE = preload("res://assets/sprites/characters/harriet_run.png")
+# Pure Rear-View 2.5D Character Sprites
+const CAESAR_SPRITE = preload("res://assets/sprites/characters/caesar_rear_run1.png")
+const JOAN_SPRITE = preload("res://assets/sprites/characters/joan_rear_run1.png")
+const HARRIET_SPRITE = preload("res://assets/sprites/characters/harriet_rear_run1.png")
 
 # 3D Preview Nodes
 var preview_viewport_container: SubViewportContainer

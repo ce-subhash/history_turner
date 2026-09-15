@@ -1,18 +1,20 @@
 ## PlayerController.gd
 ## Handles 3D character movement, 3-lane horizontal snapping with tweens,
 ## vertical jump & gravity, slide mechanics, Character Abilities, and Phase 4 Fever States.
-## Renders characters using AAA 2.5D camera-perspective sprites with real-time shadow casting.
+## Renders characters using pure direct rear-view (0° azimuth) AAA sprites with multi-frame run cycles.
+## Includes boundary void fall death and procedural sound effects.
 extends CharacterBody3D
 
 const CharacterDataScript = preload("res://scripts/resources/CharacterData.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 
-# --- Character Sprite Manifest ---
+# --- Character Sprite Manifest (Pure Direct Rear View 0° Azimuth) ---
 const CHARACTER_SPRITES = {
 	"Julius Caesar": {
-		"run": preload("res://assets/sprites/characters/caesar_run.png"),
-		"jump": preload("res://assets/sprites/characters/caesar_jump.png"),
-		"slide": preload("res://assets/sprites/characters/caesar_slide.png"),
+		"run1": preload("res://assets/sprites/characters/caesar_rear_run1.png"),
+		"run2": preload("res://assets/sprites/characters/caesar_rear_run2.png"),
+		"jump": preload("res://assets/sprites/characters/caesar_rear_jump.png"),
+		"slide": preload("res://assets/sprites/characters/caesar_rear_slide.png"),
 		"modulate": Color(1.0, 0.98, 0.95),
 		"light_color": Color(1.0, 0.85, 0.4),
 		"light_energy": 2.2,
@@ -20,9 +22,10 @@ const CHARACTER_SPRITES = {
 		"light_offset": Vector3(0.0, 1.2, 0.1)
 	},
 	"Joan of Arc": {
-		"run": preload("res://assets/sprites/characters/joan_run.png"),
-		"jump": preload("res://assets/sprites/characters/joan_jump.png"),
-		"slide": preload("res://assets/sprites/characters/joan_slide.png"),
+		"run1": preload("res://assets/sprites/characters/joan_rear_run1.png"),
+		"run2": preload("res://assets/sprites/characters/joan_rear_run2.png"),
+		"jump": preload("res://assets/sprites/characters/joan_rear_jump.png"),
+		"slide": preload("res://assets/sprites/characters/joan_rear_slide.png"),
 		"modulate": Color(0.96, 0.98, 1.0),
 		"light_color": Color(0.75, 0.9, 1.0),
 		"light_energy": 2.8,
@@ -30,14 +33,15 @@ const CHARACTER_SPRITES = {
 		"light_offset": Vector3(0.0, 1.7, 0.0)
 	},
 	"Harriet Tubman": {
-		"run": preload("res://assets/sprites/characters/harriet_run.png"),
-		"jump": preload("res://assets/sprites/characters/harriet_jump.png"),
-		"slide": preload("res://assets/sprites/characters/harriet_slide.png"),
+		"run1": preload("res://assets/sprites/characters/harriet_rear_run1.png"),
+		"run2": preload("res://assets/sprites/characters/harriet_rear_run2.png"),
+		"jump": preload("res://assets/sprites/characters/harriet_rear_jump.png"),
+		"slide": preload("res://assets/sprites/characters/harriet_rear_slide.png"),
 		"modulate": Color(1.0, 0.95, 0.9),
 		"light_color": Color(1.0, 0.78, 0.35),
 		"light_energy": 3.8,
 		"light_range": 16.0,
-		"light_offset": Vector3(-0.4, 0.85, -0.2)
+		"light_offset": Vector3(0.35, 0.85, -0.2)
 	}
 }
 
@@ -90,7 +94,7 @@ var tesla_magnet_timer: float = 0.0
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
 
-# AAA 2.5D Character Sprite & Lighting
+# Pure Rear-View 2.5D Character Sprite & Lighting
 var character_sprite: Sprite3D = null
 var character_light: OmniLight3D = null
 var active_character_name: String = "Julius Caesar"
@@ -242,6 +246,10 @@ func switch_lane(direction: int) -> void:
 	# Bank sprite smoothly into lane turn
 	banking_tilt = -float(direction) * 0.22
 
+	# Sound effect
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_lane_switch(direction)
+
 	if lane_tween and lane_tween.is_running():
 		lane_tween.kill()
 
@@ -258,6 +266,8 @@ func jump() -> void:
 		if is_sliding:
 			_end_slide()
 		velocity.y = JUMP_VELOCITY
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_jump()
 
 
 func slide() -> void:
@@ -267,6 +277,8 @@ func slide() -> void:
 		is_sliding = true
 		slide_timer = SLIDE_DURATION
 		_set_collision_height(original_shape_height * SLIDE_HEIGHT_RATIO)
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_slide()
 	else:
 		slide_timer = SLIDE_DURATION
 
@@ -328,6 +340,14 @@ func _physics_process(delta: float) -> void:
 			velocity.y = 0.0
 
 	move_and_slide()
+
+	# Void Fall Detection: If player falls off the track
+	if position.y < -4.0 and not GameManager.is_game_over:
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_void_fall()
+		GameManager.trigger_game_over("Fell into the Temporal Void!")
+		return
+
 	_update_procedural_animations(delta)
 
 	# Divine Right Artillery Barrage: Clears upcoming obstacles every 0.6s
@@ -409,6 +429,8 @@ func _check_collisions() -> void:
 					continue
 
 			var reason: String = "Crashed into %s" % collider.name
+			if has_node("/root/AudioManager"):
+				get_node("/root/AudioManager").play_sfx_crash()
 			GameManager.trigger_game_over(reason)
 			break
 
@@ -478,6 +500,9 @@ func _on_fever_ended(_fever_type: String) -> void:
 # --- Ability & Perk Event Handlers ---
 
 func _on_ability_activated(character: Resource, _duration: float) -> void:
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_ability()
+
 	match character.get("character_name"):
 		"Julius Caesar":
 			is_invulnerable = true
@@ -536,7 +561,7 @@ func _on_character_selected(character: Resource) -> void:
 	_apply_character_visuals(character)
 
 
-## Initializes AAA 2.5D Sprite3D and real-time lighting for the active ruler.
+## Initializes pure direct rear-view 2.5D Sprite3D and real-time lighting for active ruler.
 func _apply_character_visuals(character: Resource) -> void:
 	if not visual_model:
 		return
@@ -551,12 +576,12 @@ func _apply_character_visuals(character: Resource) -> void:
 		active_character_name = "Julius Caesar"
 
 	var char_data = CHARACTER_SPRITES[active_character_name]
-	var run_texture: Texture2D = char_data["run"]
+	var run1_texture: Texture2D = char_data["run1"]
 
 	# Create Sprite3D with real-time 3D shadow casting
 	character_sprite = Sprite3D.new()
 	character_sprite.name = "CharacterSprite3D"
-	character_sprite.texture = run_texture
+	character_sprite.texture = run1_texture
 	character_sprite.centered = true
 	character_sprite.offset = Vector2.ZERO
 	character_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
@@ -564,7 +589,7 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 
 	# Match sprite height exactly to 1.8m collision capsule
-	var tex_h: float = float(run_texture.get_height()) if run_texture else 1200.0
+	var tex_h: float = float(run1_texture.get_height()) if run1_texture else 1024.0
 	character_sprite.pixel_size = DEFAULT_HEIGHT / tex_h
 	character_sprite.position = Vector3(0.0, 0.9, 0.0)
 	character_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
@@ -583,7 +608,7 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_sprite.add_child(character_light)
 
 
-## Procedurally animates 2.5D sprite bobbing, stride bounce, banking, and state textures.
+## Procedurally animates 2.5D sprite bobbing, multi-frame run cycle, banking, and state textures.
 func _update_procedural_animations(delta: float) -> void:
 	if not character_sprite:
 		return
@@ -631,18 +656,22 @@ func _update_procedural_animations(delta: float) -> void:
 		character_sprite.rotation_degrees.x = -12.0
 		return
 
-	# State 4: Ground Running Stride Cycle
-	character_sprite.texture = char_data["run"]
-	var run_tex_h: float = float(char_data["run"].get_height())
-	character_sprite.pixel_size = DEFAULT_HEIGHT / run_tex_h
-
-	var run_freq: float = 12.0 * (GameManager.current_speed / 12.0)
+	# State 4: Multi-Frame Ground Running Stride Cycle (Pure Rear View)
+	var run_freq: float = 11.0 * (GameManager.current_speed / 12.0)
 	run_anim_time += delta * run_freq
 
+	# Alternate between right stride (run1) and left stride (run2) based on stride cycle
+	var is_stride_right: bool = fmod(run_anim_time, 2.0 * PI) < PI
+	var current_run_tex: Texture2D = char_data["run1"] if is_stride_right else char_data["run2"]
+	character_sprite.texture = current_run_tex
+
+	var run_tex_h: float = float(current_run_tex.get_height()) if current_run_tex else 1024.0
+	character_sprite.pixel_size = DEFAULT_HEIGHT / run_tex_h
+
 	# Subtle athletic running bounce & hip sway
-	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.055
+	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.05
 	character_sprite.position.y = 0.9 + vertical_bounce
-	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.025
+	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.03
 	character_sprite.rotation_degrees.x = -8.0
 
 

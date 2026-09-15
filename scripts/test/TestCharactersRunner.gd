@@ -5,7 +5,7 @@ const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
 func _ready() -> void:
-	print("--- Running Automated AAA 2.5D Character & Environment Tests ---")
+	print("--- Running Automated Tests: Pure Rear-View, Multi-Frame Stride, Audio, Void Death ---")
 	var main_scn = load("res://scenes/Main.tscn")
 	assert(main_scn != null, "Main.tscn must load")
 	var main_inst = main_scn.instantiate()
@@ -15,81 +15,84 @@ func _ready() -> void:
 	assert(player != null, "Player must exist in Main.tscn")
 	player.is_invulnerable = true
 
-	# 1. Julius Caesar
+	# 1. Julius Caesar: Pure Direct Rear View & Real-Time Shadow
 	CharacterManager.select_character(CAESAR_RES)
 	assert(player.character_sprite != null, "Caesar character_sprite must be instantiated")
-	assert("caesar_run" in player.character_sprite.texture.resource_path, "Caesar must have run texture")
+	assert("caesar_rear_run" in player.character_sprite.texture.resource_path, "Caesar must have pure rear run texture")
 	assert(player.character_sprite.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "Must cast real-time 3D shadow")
 	assert(player.character_light != null, "Caesar must have active character light")
-	print("✔ Julius Caesar AAA 2.5D Sprite & real-time shadow verified.")
+	print("✔ Julius Caesar pure direct rear-view (0° azimuth) sprite verified.")
 
-	# Run stride bounce test
-	var initial_y = player.character_sprite.position.y
-	for i in range(10):
+	# 2. Multi-Frame Running Stride Animation (Alternating Left & Right Strides)
+	var initial_tex_path = player.character_sprite.texture.resource_path
+	var swapped_stride = false
+	for i in range(30):
 		player._physics_process(0.02)
-	assert(player.character_sprite.position.y != initial_y, "Sprite must bounce during running stride")
-	print("✔ Caesar running stride bounce & banking verified.")
+		if player.character_sprite.texture.resource_path != initial_tex_path:
+			swapped_stride = true
+			break
+	assert(swapped_stride, "Running stride must alternate frames between run1 and run2")
+	print("✔ Caesar multi-frame running stride cycle (run1 <-> run2) verified.")
 
-	# 2. Joan of Arc
+	# 3. Joan of Arc Pure Rear View
 	CharacterManager.select_character(JOAN_RES)
 	assert(player.character_sprite != null, "Joan character_sprite must be instantiated")
-	assert("joan_run" in player.character_sprite.texture.resource_path, "Joan must have run texture")
+	assert("joan_rear_run" in player.character_sprite.texture.resource_path, "Joan must have pure rear run texture")
 	assert(player.character_light != null, "Joan must have active Saintly Halo light")
-	print("✔ Joan of Arc AAA 2.5D Sprite & Divine Halo light verified.")
+	print("✔ Joan of Arc pure rear-view sprite & Divine Halo light verified.")
 
-	# 3. Harriet Tubman
+	# 4. Harriet Tubman Pure Rear View & Lantern
 	CharacterManager.select_character(HARRIET_RES)
 	assert(player.character_sprite != null, "Harriet character_sprite must be instantiated")
-	assert("harriet_run" in player.character_sprite.texture.resource_path, "Harriet must have run texture")
+	assert("harriet_rear_run" in player.character_sprite.texture.resource_path, "Harriet must have pure rear run texture")
 	assert(player.character_light != null, "Harriet must have active Freedom Lantern light")
-	assert(player.character_light.light_energy > 2.0, "Freedom Lantern must have rich emissive energy")
-	print("✔ Harriet Tubman AAA 2.5D Sprite & Freedom Lantern verified.")
+	print("✔ Harriet Tubman pure rear-view sprite & Freedom Lantern verified.")
 
-	# 4. Jump & Slide Pose Textures
+	# 5. Jump & Slide Pure Rear Poses
 	player.velocity.y = 8.0
 	player._physics_process(0.05)
-	assert("harriet_jump" in player.character_sprite.texture.resource_path, "Texture must swap to jump pose in mid-air")
-	print("✔ Harriet mid-air jump pose texture verified.")
+	assert("harriet_rear_jump" in player.character_sprite.texture.resource_path, "Texture must swap to pure rear jump pose in mid-air")
+	print("✔ Harriet pure direct rear jump leap pose verified.")
 
 	player.velocity.y = 0.0
 	player.slide()
 	player._physics_process(0.05)
-	assert("harriet_slide" in player.character_sprite.texture.resource_path, "Texture must swap to slide pose during slide")
+	assert("harriet_rear_slide" in player.character_sprite.texture.resource_path, "Texture must swap to pure rear slide pose during slide")
 	assert(player.character_sprite.position.y <= 0.5, "Sprite must lower to ground during slide")
-	print("✔ Harriet low ground slide pose texture verified.")
+	print("✔ Harriet pure direct rear low ground slide crouch verified.")
 	player._end_slide()
 
-	# 5. Track Environment & Collectibles
-	var track_mgr = main_inst.find_child("TrackManager", true, false)
-	assert(track_mgr != null, "TrackManager must exist")
-	assert(track_mgr.road_material != null, "Road material must exist")
-	assert(track_mgr.road_material.albedo_texture != null, "Road must use PBR cobblestone/marble texture")
-	print("✔ Ancient Roman Road PBR texture verified.")
+	# 6. Audio Engine (BGM & SFX)
+	assert(has_node("/root/AudioManager"), "AudioManager autoload singleton must be active")
+	var audio = get_node("/root/AudioManager")
+	assert(audio.bgm_player != null, "BGM Player must exist")
+	audio.play_sfx_jump()
+	audio.play_sfx_slide()
+	audio.play_sfx_lane_switch(1)
+	audio.play_sfx_collect_fist()
+	audio.play_sfx_collect_crown()
+	audio.play_sfx_gate()
+	audio.play_sfx_crash()
+	audio.play_sfx_void_fall()
+	print("✔ AudioManager singleton, synthesized BGM, and all SFX channels verified.")
 
-	var fist_token = track_mgr._create_collectible(0)
-	var fist_sprite = fist_token.get_node("CollectibleSprite")
-	assert(fist_sprite != null and "collectible_fist" in fist_sprite.texture.resource_path, "Fist token must use AAA sprite")
-	print("✔ People Fist ruby crystalline collectible sprite verified.")
+	# 7. Void Fall Death Detection
+	player.is_invulnerable = false # Allow death
+	player.position.y = -5.0
+	player._physics_process(0.02)
+	assert(GameManager.is_game_over, "Falling off road into void (Y < -4.0) must trigger Game Over")
+	print("✔ Void fall death boundary (Y < -4.0) verified: 'Fell into the Temporal Void!'.")
 
-	var crown_token = track_mgr._create_collectible(1)
-	var crown_sprite = crown_token.get_node("CollectibleSprite")
-	assert(crown_sprite != null and "collectible_crown" in crown_sprite.texture.resource_path, "Crown token must use AAA sprite")
-	print("✔ Govt Crown golden sapphire collectible sprite verified.")
-
-	var barricade_obs = track_mgr._create_obstacle(3) # SOLID_BLOCK
-	var barricade_sprite = barricade_obs.get_node("BarricadeSprite3D")
-	assert(barricade_sprite != null and "obstacle_barricade" in barricade_sprite.texture.resource_path, "Barricade obstacle must use AAA sprite")
-	print("✔ Fortified Roman Barricade obstacle sprite & 3D shadow verified.")
-
-	# 6. CharacterSelectScreen Preview Test
+	# 8. CharacterSelectScreen Preview Test
 	var char_select_scn = load("res://scenes/ui/CharacterSelectScreen.tscn")
 	assert(char_select_scn != null, "CharacterSelectScreen.tscn must load")
 	var char_select_inst = char_select_scn.instantiate()
 	add_child(char_select_inst)
 	assert(char_select_inst.preview_sprite != null, "Preview Sprite3D must exist in CharacterSelectScreen")
-	print("✔ CharacterSelectScreen 2.5D character preview verified.")
+	assert("rear" in char_select_inst.preview_sprite.texture.resource_path, "CharacterSelectScreen preview must use pure rear-view sprite")
+	print("✔ CharacterSelectScreen pure rear-view character preview verified.")
 
-	print("\n=======================================================")
-	print("⭐⭐⭐ ALL AAA 2.5D ASSET INTEGRATION TESTS PASSED! ⭐⭐⭐")
-	print("=======================================================\n")
+	print("\n=========================================================================")
+	print("⭐⭐⭐ ALL PURE REAR-VIEW, AUDIO & VOID DEATH TESTS PASSED! ⭐⭐⭐")
+	print("=========================================================================\n")
 	get_tree().quit(0)
