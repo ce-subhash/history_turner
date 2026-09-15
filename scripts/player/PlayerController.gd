@@ -1,14 +1,45 @@
 ## PlayerController.gd
 ## Handles 3D character movement, 3-lane horizontal snapping with tweens,
 ## vertical jump & gravity, slide mechanics, Character Abilities, and Phase 4 Fever States.
+## Renders characters using AAA 2.5D camera-perspective sprites with real-time shadow casting.
 extends CharacterBody3D
 
 const CharacterDataScript = preload("res://scripts/resources/CharacterData.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 
-const CAESAR_MODEL = preload("res://assets/characters/caesar.glb")
-const JOAN_MODEL = preload("res://assets/characters/joan.glb")
-const HARRIET_MODEL = preload("res://assets/characters/harriet.glb")
+# --- Character Sprite Manifest ---
+const CHARACTER_SPRITES = {
+	"Julius Caesar": {
+		"run": preload("res://assets/sprites/characters/caesar_run.png"),
+		"jump": preload("res://assets/sprites/characters/caesar_jump.png"),
+		"slide": preload("res://assets/sprites/characters/caesar_slide.png"),
+		"modulate": Color(1.0, 0.98, 0.95),
+		"light_color": Color(1.0, 0.85, 0.4),
+		"light_energy": 2.2,
+		"light_range": 10.0,
+		"light_offset": Vector3(0.0, 1.2, 0.1)
+	},
+	"Joan of Arc": {
+		"run": preload("res://assets/sprites/characters/joan_run.png"),
+		"jump": preload("res://assets/sprites/characters/joan_jump.png"),
+		"slide": preload("res://assets/sprites/characters/joan_slide.png"),
+		"modulate": Color(0.96, 0.98, 1.0),
+		"light_color": Color(0.75, 0.9, 1.0),
+		"light_energy": 2.8,
+		"light_range": 11.0,
+		"light_offset": Vector3(0.0, 1.7, 0.0)
+	},
+	"Harriet Tubman": {
+		"run": preload("res://assets/sprites/characters/harriet_run.png"),
+		"jump": preload("res://assets/sprites/characters/harriet_jump.png"),
+		"slide": preload("res://assets/sprites/characters/harriet_slide.png"),
+		"modulate": Color(1.0, 0.95, 0.9),
+		"light_color": Color(1.0, 0.78, 0.35),
+		"light_energy": 3.8,
+		"light_range": 16.0,
+		"light_offset": Vector3(-0.4, 0.85, -0.2)
+	}
+}
 
 # --- Constants & Configuration ---
 const LANE_LEFT: float = -2.5
@@ -59,16 +90,12 @@ var tesla_magnet_timer: float = 0.0
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
 
-# Procedural 3D Character Model Rig & Animation
-var current_model_root: Node3D = null
-var left_arm_node: Node3D = null
-var right_arm_node: Node3D = null
-var left_leg_node: Node3D = null
-var right_leg_node: Node3D = null
-var torso_node: Node3D = null
-var cape_node: Node3D = null
-var lantern_light: OmniLight3D = null
+# AAA 2.5D Character Sprite & Lighting
+var character_sprite: Sprite3D = null
+var character_light: OmniLight3D = null
+var active_character_name: String = "Julius Caesar"
 var run_anim_time: float = 0.0
+var banking_tilt: float = 0.0
 
 # --- Node References ---
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
@@ -130,8 +157,8 @@ func _setup_ability_visuals() -> void:
 	shield_mesh = MeshInstance3D.new()
 	shield_mesh.name = "AbilityShield"
 	var sphere: SphereMesh = SphereMesh.new()
-	sphere.radius = 1.1
-	sphere.height = 2.2
+	sphere.radius = 1.15
+	sphere.height = 2.3
 	shield_mesh.mesh = sphere
 
 	var shield_mat: StandardMaterial3D = StandardMaterial3D.new()
@@ -139,9 +166,9 @@ func _setup_ability_visuals() -> void:
 	shield_mat.albedo_color = Color(1.0, 0.85, 0.2, 0.35)
 	shield_mat.emission_enabled = true
 	shield_mat.emission = Color(1.0, 0.8, 0.2)
-	shield_mat.emission_energy_multiplier = 1.2
+	shield_mat.emission_energy_multiplier = 1.4
 	shield_mesh.material_override = shield_mat
-	shield_mesh.position = Vector3(0.0, 1.0, 0.0)
+	shield_mesh.position = Vector3(0.0, 0.9, 0.0)
 	shield_mesh.visible = false
 	add_child(shield_mesh)
 
@@ -212,6 +239,9 @@ func switch_lane(direction: int) -> void:
 	current_lane = target_lane
 	var target_x: float = current_lane * LANE_WIDTH
 
+	# Bank sprite smoothly into lane turn
+	banking_tilt = -float(direction) * 0.22
+
 	if lane_tween and lane_tween.is_running():
 		lane_tween.kill()
 
@@ -223,7 +253,7 @@ func switch_lane(direction: int) -> void:
 
 func jump() -> void:
 	if is_peasant_fever:
-		return # Already floating
+		return
 	if is_on_floor():
 		if is_sliding:
 			_end_slide()
@@ -232,15 +262,11 @@ func jump() -> void:
 
 func slide() -> void:
 	if is_peasant_fever:
-		return # Hovering
+		return
 	if not is_sliding:
 		is_sliding = true
 		slide_timer = SLIDE_DURATION
 		_set_collision_height(original_shape_height * SLIDE_HEIGHT_RATIO)
-
-		if visual_model:
-			var visual_tween = create_tween()
-			visual_tween.tween_property(visual_model, "position:y", 0.35, 0.1)
 	else:
 		slide_timer = SLIDE_DURATION
 
@@ -252,10 +278,6 @@ func _end_slide() -> void:
 	is_sliding = false
 	slide_timer = 0.0
 	_set_collision_height(original_shape_height)
-
-	if visual_model:
-		var visual_tween = create_tween()
-		visual_tween.tween_property(visual_model, "position:y", original_shape_y, 0.1)
 
 
 func _set_collision_height(new_height: float) -> void:
@@ -337,7 +359,6 @@ func _process_magnetism(delta: float) -> void:
 
 	for node in get_tree().root.find_children("*", "Area3D", true, false):
 		if node is CollectibleScript and not node.is_collected:
-			# Filter in fever mode unless Tesla Watch is pulling everything
 			if tesla_magnet_timer <= 0.0:
 				if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
 					continue
@@ -379,7 +400,7 @@ func _check_collisions() -> void:
 				_transmute_obstacle(collider as Node3D)
 				continue
 
-			# Relic Perk: Cleopatra's Asp (Prevents fatal damage once per run, resets meters to 50%)
+			# Relic Perk: Cleopatra's Asp
 			if has_node("/root/SaveManager"):
 				var sm = get_node("/root/SaveManager")
 				if sm.is_relic_equipped("cleopatra_asp") and not cleopatra_asp_used:
@@ -404,7 +425,6 @@ func _trigger_cleopatra_asp() -> void:
 	shield_mesh.material_override.emission = Color(0.2, 0.9, 0.4)
 	if GameManager:
 		GameManager.decision_notification.emit("🐍 CLEOPATRA'S ASP: Fatal collapse averted! Meters stabilized at 50%!")
-
 
 
 func _smash_obstacle(obstacle: Node3D) -> void:
@@ -478,8 +498,8 @@ func _on_ability_activated(character: Resource, _duration: float) -> void:
 			shield_mesh.material_override.albedo_color = Color(0.2, 0.9, 0.6, 0.35)
 			shield_mesh.material_override.emission = Color(0.2, 0.85, 0.5)
 
-			if visual_model:
-				visual_model.modulate = Color(1, 1, 1, 0.4)
+			if character_sprite:
+				character_sprite.modulate = Color(1, 1, 1, 0.4)
 
 
 func _on_ability_deactivated(_character: Resource) -> void:
@@ -490,8 +510,9 @@ func _on_ability_deactivated(_character: Resource) -> void:
 	if not is_peasant_fever and not is_divine_fever:
 		shield_mesh.visible = false
 
-	if visual_model:
-		visual_model.modulate = Color(1, 1, 1, 1)
+	if character_sprite:
+		var char_data = CHARACTER_SPRITES.get(active_character_name, CHARACTER_SPRITES["Julius Caesar"])
+		character_sprite.modulate = char_data["modulate"]
 
 
 func _on_power_changed(people: float, govt: float) -> void:
@@ -515,124 +536,114 @@ func _on_character_selected(character: Resource) -> void:
 	_apply_character_visuals(character)
 
 
+## Initializes AAA 2.5D Sprite3D and real-time lighting for the active ruler.
 func _apply_character_visuals(character: Resource) -> void:
 	if not visual_model:
 		return
 
-	# Hide prototype primitive meshes if present
-	var body_mesh_inst: Node = visual_model.get_node_or_null("BodyMesh")
-	if body_mesh_inst:
-		body_mesh_inst.visible = false
-	var visor_mesh_inst: Node = visual_model.get_node_or_null("VisorMesh")
-	if visor_mesh_inst:
-		visor_mesh_inst.visible = false
+	# Clean up previous visuals
+	for child in visual_model.get_children():
+		visual_model.remove_child(child)
+		child.queue_free()
 
-	# Remove previous character model
-	if current_model_root and is_instance_valid(current_model_root):
-		current_model_root.queue_free()
-		current_model_root = null
+	active_character_name = character.get("character_name") if character else "Julius Caesar"
+	if not CHARACTER_SPRITES.has(active_character_name):
+		active_character_name = "Julius Caesar"
 
-	var char_name: String = character.get("character_name") if character else "Julius Caesar"
-	var model_scene: PackedScene = CAESAR_MODEL
-	match char_name:
-		"Julius Caesar":
-			model_scene = CAESAR_MODEL
-		"Joan of Arc":
-			model_scene = JOAN_MODEL
-		"Harriet Tubman":
-			model_scene = HARRIET_MODEL
-		_:
-			model_scene = CAESAR_MODEL
+	var char_data = CHARACTER_SPRITES[active_character_name]
+	var run_texture: Texture2D = char_data["run"]
 
-	if model_scene:
-		current_model_root = model_scene.instantiate()
-		current_model_root.name = "Character3DModel"
-		visual_model.add_child(current_model_root)
+	# Create Sprite3D with real-time 3D shadow casting
+	character_sprite = Sprite3D.new()
+	character_sprite.name = "CharacterSprite3D"
+	character_sprite.texture = run_texture
+	character_sprite.centered = true
+	character_sprite.offset = Vector2.ZERO
+	character_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+	character_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	character_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 
-		# Cache limb references for procedural runner animation
-		left_arm_node = current_model_root.find_child("LeftArm", true, false)
-		right_arm_node = current_model_root.find_child("RightArm", true, false)
-		left_leg_node = current_model_root.find_child("LeftLeg", true, false)
-		right_leg_node = current_model_root.find_child("RightLeg", true, false)
-		torso_node = current_model_root.find_child("Torso", true, false)
-		cape_node = current_model_root.find_child("Cape", true, false)
+	# Match sprite height exactly to 1.8m collision capsule
+	var tex_h: float = float(run_texture.get_height()) if run_texture else 1200.0
+	character_sprite.pixel_size = DEFAULT_HEIGHT / tex_h
+	character_sprite.position = Vector3(0.0, 0.9, 0.0)
+	character_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+	character_sprite.modulate = char_data["modulate"]
+	visual_model.add_child(character_sprite)
 
-		# Attach Freedom Lantern dynamic illumination for Harriet Tubman
-		if char_name == "Harriet Tubman" and right_arm_node:
-			lantern_light = OmniLight3D.new()
-			lantern_light.name = "FreedomLanternLight"
-			lantern_light.light_color = Color(1.0, 0.78, 0.35)
-			lantern_light.light_energy = 3.5
-			lantern_light.omni_range = 14.0
-			lantern_light.omni_attenuation = 1.2
-			lantern_light.position = Vector3(0.0, -0.65, 0.12)
-			right_arm_node.add_child(lantern_light)
+	# Dynamic character illumination (Freedom Lantern, Saint Halo, Imperial Radiance)
+	character_light = OmniLight3D.new()
+	character_light.name = "CharacterDynamicLight"
+	character_light.light_color = char_data["light_color"]
+	character_light.light_energy = char_data["light_energy"]
+	character_light.omni_range = char_data["light_range"]
+	character_light.omni_attenuation = 1.2
+	character_light.position = char_data["light_offset"]
+	character_light.shadow_enabled = true
+	character_sprite.add_child(character_light)
 
 
-## Procedurally animates limbs, torso, cape flutter, and lantern sway based on movement state.
+## Procedurally animates 2.5D sprite bobbing, stride bounce, banking, and state textures.
 func _update_procedural_animations(delta: float) -> void:
-	if not left_leg_node or not right_leg_node or not left_arm_node or not right_arm_node or not torso_node:
+	if not character_sprite:
 		return
+
+	if not CHARACTER_SPRITES.has(active_character_name):
+		return
+
+	var char_data = CHARACTER_SPRITES[active_character_name]
+
+	# Banking recovery
+	banking_tilt = lerpf(banking_tilt, 0.0, 8.0 * delta)
+	character_sprite.rotation.z = banking_tilt
 
 	if GameManager.is_game_over:
-		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(20.0), 5.0 * delta)
-		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, 0.0, 5.0 * delta)
-		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, 0.0, 5.0 * delta)
-		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, 0.0, 5.0 * delta)
-		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, 0.0, 5.0 * delta)
+		character_sprite.rotation_degrees.x = lerpf(character_sprite.rotation_degrees.x, -25.0, 6.0 * delta)
 		return
 
+	# State 1: Peasant Revolution Fever Flight
 	if is_peasant_fever:
-		# Floating superhero flying pose
-		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(-35.0), 8.0 * delta)
-		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(-15.0), 8.0 * delta)
-		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(-15.0), 8.0 * delta)
-		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(45.0), 8.0 * delta)
-		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(45.0), 8.0 * delta)
-		if cape_node:
-			cape_node.rotation.x = deg_to_rad(45.0 + sin(run_anim_time * 3.0) * 8.0)
+		character_sprite.texture = char_data["jump"]
+		var flight_tex_h: float = float(char_data["jump"].get_height())
+		character_sprite.pixel_size = DEFAULT_HEIGHT / flight_tex_h
+		run_anim_time += delta * 4.0
+		character_sprite.position.y = 0.9 + sin(run_anim_time) * 0.08
+		character_sprite.rotation_degrees.x = -15.0
 		return
 
+	# State 2: Low Ground Slide
 	if is_sliding:
-		# Low crouch slide pose
-		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(25.0), 12.0 * delta)
-		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(65.0), 12.0 * delta)
-		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(60.0), 12.0 * delta)
-		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(-35.0), 12.0 * delta)
-		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(-35.0), 12.0 * delta)
-		if cape_node:
-			cape_node.rotation.x = lerp_angle(cape_node.rotation.x, deg_to_rad(-15.0), 12.0 * delta)
+		character_sprite.texture = char_data["slide"]
+		var slide_tex_h: float = float(char_data["slide"].get_height())
+		character_sprite.pixel_size = DEFAULT_HEIGHT / slide_tex_h
+		character_sprite.position.y = 0.45
+		character_sprite.position.x = 0.0
+		character_sprite.rotation_degrees.x = -4.0
 		return
 
-	if not is_on_floor():
-		# Airborne jump tuck pose
-		torso_node.rotation.x = lerp_angle(torso_node.rotation.x, deg_to_rad(-5.0), 10.0 * delta)
-		left_leg_node.rotation.x = lerp_angle(left_leg_node.rotation.x, deg_to_rad(-35.0), 10.0 * delta)
-		right_leg_node.rotation.x = lerp_angle(right_leg_node.rotation.x, deg_to_rad(-45.0), 10.0 * delta)
-		left_arm_node.rotation.x = lerp_angle(left_arm_node.rotation.x, deg_to_rad(35.0), 10.0 * delta)
-		right_arm_node.rotation.x = lerp_angle(right_arm_node.rotation.x, deg_to_rad(35.0), 10.0 * delta)
-		if cape_node:
-			cape_node.rotation.x = lerp_angle(cape_node.rotation.x, deg_to_rad(30.0), 10.0 * delta)
+	# State 3: Airborne Jump Leap
+	if not is_on_floor() or velocity.y > 0.1:
+		character_sprite.texture = char_data["jump"]
+		var jump_tex_h: float = float(char_data["jump"].get_height())
+		character_sprite.pixel_size = DEFAULT_HEIGHT / jump_tex_h
+		character_sprite.position.y = 0.95
+		character_sprite.position.x = 0.0
+		character_sprite.rotation_degrees.x = -12.0
 		return
 
-	# Ground Running stride cycle
+	# State 4: Ground Running Stride Cycle
+	character_sprite.texture = char_data["run"]
+	var run_tex_h: float = float(char_data["run"].get_height())
+	character_sprite.pixel_size = DEFAULT_HEIGHT / run_tex_h
+
 	var run_freq: float = 12.0 * (GameManager.current_speed / 12.0)
 	run_anim_time += delta * run_freq
-	var stride: float = sin(run_anim_time) * 0.65
-	left_leg_node.rotation.x = stride
-	right_leg_node.rotation.x = -stride
-	var arm_stride: float = -sin(run_anim_time) * 0.55
-	left_arm_node.rotation.x = arm_stride
-	right_arm_node.rotation.x = -arm_stride
 
-	# Forward tilt and running bounce
-	torso_node.rotation.x = deg_to_rad(-7.0)
-	torso_node.position.y = 0.86 + abs(sin(run_anim_time * 2.0)) * 0.04
-
-	# Dynamic cape fluttering
-	if cape_node:
-		var cape_flutter: float = deg_to_rad(18.0 + sin(run_anim_time * 2.2) * 8.0 + (GameManager.current_speed - 12.0) * 1.2)
-		cape_node.rotation.x = cape_flutter
+	# Subtle athletic running bounce & hip sway
+	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.055
+	character_sprite.position.y = 0.9 + vertical_bounce
+	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.025
+	character_sprite.rotation_degrees.x = -8.0
 
 
 func _on_game_over(_reason: String) -> void:

@@ -5,11 +5,16 @@
 extends Node3D
 class_name TrackManager
 
-# --- Preloaded Scripts ---
+# --- Preloaded Scripts & Textures ---
 const DecisionGateScript = preload("res://scripts/world/DecisionGate.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
 const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
+
+const ROAD_ROMAN_TEX = preload("res://assets/sprites/environment/road_roman_pbr.png")
+const COLLECTIBLE_FIST_TEX = preload("res://assets/sprites/props/collectible_fist.png")
+const COLLECTIBLE_CROWN_TEX = preload("res://assets/sprites/props/collectible_crown.png")
+const BARRICADE_TEX = preload("res://assets/sprites/props/obstacle_barricade.png")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
@@ -100,7 +105,10 @@ func _process(_delta: float) -> void:
 ## Initializes shared materials with baseline properties.
 func _init_materials() -> void:
 	road_material = StandardMaterial3D.new()
-	road_material.roughness = 0.85
+	road_material.albedo_texture = ROAD_ROMAN_TEX
+	road_material.uv1_scale = Vector3(1.0, 3.0, 1.0)
+	road_material.roughness = 0.75
+	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 	lane_marker_material = StandardMaterial3D.new()
 	lane_marker_material.emission_enabled = true
@@ -140,8 +148,8 @@ func _apply_era_styling(era: EraTheme) -> void:
 	match era:
 		EraTheme.ROMAN_MARBLE:
 			era_title = "Roman Republic"
-			# Polished gray/white marble
-			road_material.albedo_color = Color(0.35, 0.38, 0.42)
+			# Polished gray/white marble flagstones
+			road_material.albedo_color = Color(1.0, 1.0, 1.0)
 			lane_marker_material.albedo_color = Color(0.95, 0.85, 0.2)
 			lane_marker_material.emission = Color(0.95, 0.8, 0.2) * 0.5
 			curb_material.albedo_color = Color(0.7, 0.72, 0.76)
@@ -156,8 +164,8 @@ func _apply_era_styling(era: EraTheme) -> void:
 
 		EraTheme.FEUDAL_BAMBOO:
 			era_title = "Feudal Dynasty"
-			# Mossy dark stone & timber road
-			road_material.albedo_color = Color(0.22, 0.28, 0.20)
+			# Mossy dark stone & timber road tint
+			road_material.albedo_color = Color(0.65, 0.78, 0.60)
 			lane_marker_material.albedo_color = Color(0.95, 0.25, 0.15)
 			lane_marker_material.emission = Color(0.95, 0.25, 0.15) * 0.6
 			curb_material.albedo_color = Color(0.4, 0.3, 0.18)
@@ -172,8 +180,8 @@ func _apply_era_styling(era: EraTheme) -> void:
 
 		EraTheme.INDUSTRIAL_STEEL:
 			era_title = "Industrial Revolution"
-			# Riveted dark iron & steel
-			road_material.albedo_color = Color(0.12, 0.14, 0.18)
+			# Dark industrial cobblestone tint
+			road_material.albedo_color = Color(0.45, 0.48, 0.55)
 			lane_marker_material.albedo_color = Color(1.0, 0.75, 0.1)
 			lane_marker_material.emission = Color(1.0, 0.7, 0.1) * 0.8
 			curb_material.albedo_color = Color(0.25, 0.28, 0.32)
@@ -414,25 +422,32 @@ func _create_collectible(type: int) -> Area3D:
 
 	var col: CollisionShape3D = CollisionShape3D.new()
 	var sphere_shape: SphereShape3D = SphereShape3D.new()
-	sphere_shape.radius = 0.5
+	sphere_shape.radius = 0.55
 	col.shape = sphere_shape
 	token.add_child(col)
 
-	var mesh_inst: MeshInstance3D = MeshInstance3D.new()
+	var sprite: Sprite3D = Sprite3D.new()
+	sprite.name = "CollectibleSprite"
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sprite.pixel_size = 0.85 / 1024.0
+
+	var light: OmniLight3D = OmniLight3D.new()
+	light.omni_range = 5.0
+	light.omni_attenuation = 1.3
 
 	if type == CollectibleScript.CollectibleType.PEOPLE_FIST:
-		var sphere: SphereMesh = SphereMesh.new()
-		sphere.radius = 0.35
-		sphere.height = 0.7
-		sphere.material = fist_material
-		mesh_inst.mesh = sphere
+		sprite.texture = COLLECTIBLE_FIST_TEX
+		light.light_color = Color(1.0, 0.22, 0.28)
+		light.light_energy = 2.4
 	else:
-		var cube: BoxMesh = BoxMesh.new()
-		cube.size = Vector3(0.6, 0.6, 0.6)
-		cube.material = crown_material
-		mesh_inst.mesh = cube
+		sprite.texture = COLLECTIBLE_CROWN_TEX
+		light.light_color = Color(0.28, 0.72, 1.0)
+		light.light_energy = 2.4
 
-	token.add_child(mesh_inst)
+	token.add_child(sprite)
+	token.add_child(light)
 	return token
 
 
@@ -505,25 +520,21 @@ func _create_obstacle(type: ObstacleType) -> Node3D:
 			obstacle_root.name = "Obstacle_SolidBlock"
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 2.6, 1.4)
+			box.size = Vector3(2.2, 2.4, 0.6)
 			col.shape = box
-			col.position = Vector3(0.0, 1.3, 0.0)
+			col.position = Vector3(0.0, 1.2, 0.0)
 			obstacle_root.add_child(col)
 
-			var block_mesh: MeshInstance3D = MeshInstance3D.new()
-			var block: BoxMesh = BoxMesh.new()
-			block.size = Vector3(2.2, 2.6, 1.4)
-			block.material = block_material
-			block_mesh.mesh = block
-			block_mesh.position = Vector3(0.0, 1.3, 0.0)
-			obstacle_root.add_child(block_mesh)
-
-			var trim_mesh: MeshInstance3D = MeshInstance3D.new()
-			var trim: BoxMesh = BoxMesh.new()
-			trim.size = Vector3(2.24, 0.3, 1.44)
-			trim.material = lane_marker_material
-			trim_mesh.mesh = trim
-			trim_mesh.position = Vector3(0.0, 1.3, 0.0)
-			obstacle_root.add_child(trim_mesh)
+			# AAA Roman Fortified Barricade Sprite with 3D shadow casting
+			var barricade_sprite: Sprite3D = Sprite3D.new()
+			barricade_sprite.name = "BarricadeSprite3D"
+			barricade_sprite.texture = BARRICADE_TEX
+			barricade_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+			barricade_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			barricade_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			barricade_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+			barricade_sprite.pixel_size = 2.4 / 1024.0
+			barricade_sprite.position = Vector3(0.0, 1.2, 0.0)
+			obstacle_root.add_child(barricade_sprite)
 
 	return obstacle_root

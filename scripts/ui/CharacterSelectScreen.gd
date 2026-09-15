@@ -8,16 +8,17 @@ const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
-# 3D Character Models
-const CAESAR_MODEL = preload("res://assets/characters/caesar.glb")
-const JOAN_MODEL = preload("res://assets/characters/joan.glb")
-const HARRIET_MODEL = preload("res://assets/characters/harriet.glb")
+# 2.5D Character Sprites
+const CAESAR_SPRITE = preload("res://assets/sprites/characters/caesar_run.png")
+const JOAN_SPRITE = preload("res://assets/sprites/characters/joan_run.png")
+const HARRIET_SPRITE = preload("res://assets/sprites/characters/harriet_run.png")
 
 # 3D Preview Nodes
 var preview_viewport_container: SubViewportContainer
 var preview_viewport: SubViewport
 var preview_model_pivot: Node3D
-var preview_current_model: Node3D
+var preview_sprite: Sprite3D
+var preview_time: float = 0.0
 
 # UI Node References
 @onready var ruler_name_label: Label = $MainLayout/DetailsPanel/Margin/VBox/RulerName
@@ -75,8 +76,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	preview_time += delta
 	if preview_model_pivot:
-		preview_model_pivot.rotation.y += delta * 0.9
+		# Gentle idle float and subtle sway
+		preview_model_pivot.rotation.y = sin(preview_time * 1.4) * 0.12
+		if preview_sprite:
+			preview_sprite.position.y = 0.9 + sin(preview_time * 2.2) * 0.03
 
 
 func _setup_3d_preview() -> void:
@@ -122,7 +127,7 @@ func _setup_3d_preview() -> void:
 	# Rotating Model Pivot
 	preview_model_pivot = Node3D.new()
 	preview_model_pivot.name = "ModelPivot"
-	preview_model_pivot.rotation_degrees.y = 180.0
+	preview_model_pivot.rotation_degrees.y = 0.0
 	preview_viewport.add_child(preview_model_pivot)
 
 	# Pedestal
@@ -188,55 +193,78 @@ func _update_3d_preview(char_name: String) -> void:
 	if not preview_model_pivot:
 		return
 
-	if preview_current_model and is_instance_valid(preview_current_model):
-		preview_current_model.queue_free()
-		preview_current_model = null
+	# Remove any previous model children except the pedestal
+	for child in preview_model_pivot.get_children():
+		if child is MeshInstance3D and child.name == "Pedestal":
+			continue
+		preview_model_pivot.remove_child(child)
+		child.queue_free()
+	preview_sprite = null
 
-	var model_scene: PackedScene = CAESAR_MODEL
+	var sprite_tex: Texture2D = CAESAR_SPRITE
+	var light_col: Color = Color(1.0, 0.85, 0.4)
+	var light_energy: float = 2.4
+
 	match char_name:
 		"Julius Caesar":
-			model_scene = CAESAR_MODEL
+			sprite_tex = CAESAR_SPRITE
+			light_col = Color(1.0, 0.85, 0.4)
+			light_energy = 2.4
 		"Joan of Arc":
-			model_scene = JOAN_MODEL
+			sprite_tex = JOAN_SPRITE
+			light_col = Color(0.75, 0.9, 1.0)
+			light_energy = 2.8
 		"Harriet Tubman":
-			model_scene = HARRIET_MODEL
+			sprite_tex = HARRIET_SPRITE
+			light_col = Color(1.0, 0.78, 0.35)
+			light_energy = 3.6
 		_:
-			model_scene = CAESAR_MODEL
+			sprite_tex = CAESAR_SPRITE
 
-	if model_scene:
-		preview_current_model = model_scene.instantiate()
-		preview_model_pivot.add_child(preview_current_model)
+	if sprite_tex:
+		preview_sprite = Sprite3D.new()
+		preview_sprite.name = "PreviewSprite3D"
+		preview_sprite.texture = sprite_tex
+		preview_sprite.centered = true
+		preview_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+		preview_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		preview_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+		preview_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+		preview_sprite.pixel_size = 1.8 / float(sprite_tex.get_height())
+		preview_sprite.position = Vector3(0.0, 0.9, 0.0)
+		preview_model_pivot.add_child(preview_sprite)
 
-		# Add dynamic lantern illumination for Harriet Tubman
-		if char_name == "Harriet Tubman":
-			var r_arm = preview_current_model.find_child("RightArm", true, false)
-			if r_arm:
-				var lantern_light = OmniLight3D.new()
-				lantern_light.name = "PreviewLanternLight"
-				lantern_light.light_color = Color(1.0, 0.78, 0.35)
-				lantern_light.light_energy = 2.8
-				lantern_light.omni_range = 8.0
-				lantern_light.position = Vector3(0.0, -0.65, 0.12)
-				r_arm.add_child(lantern_light)
+		var dynamic_light = OmniLight3D.new()
+		dynamic_light.name = "PreviewDynamicLight"
+		dynamic_light.light_color = light_col
+		dynamic_light.light_energy = light_energy
+		dynamic_light.omni_range = 8.0
+		dynamic_light.position = Vector3(0.0, 1.0, 0.2)
+		preview_sprite.add_child(dynamic_light)
 
 
 func _update_3d_preview_locked() -> void:
 	if not preview_model_pivot:
 		return
 
-	if preview_current_model and is_instance_valid(preview_current_model):
-		preview_current_model.queue_free()
-		preview_current_model = null
+	for child in preview_model_pivot.get_children():
+		if child is MeshInstance3D and child.name == "Pedestal":
+			continue
+		preview_model_pivot.remove_child(child)
+		child.queue_free()
+	preview_sprite = null
 
-	preview_current_model = CAESAR_MODEL.instantiate()
-	preview_model_pivot.add_child(preview_current_model)
-
-	var locked_mat = StandardMaterial3D.new()
-	locked_mat.albedo_color = Color(0.1, 0.12, 0.15, 1.0)
-	locked_mat.metallic = 0.5
-	locked_mat.roughness = 0.8
-	for child in preview_current_model.find_children("*", "MeshInstance3D", true, false):
-		(child as MeshInstance3D).material_override = locked_mat
+	preview_sprite = Sprite3D.new()
+	preview_sprite.name = "PreviewSprite3D"
+	preview_sprite.texture = CAESAR_SPRITE
+	preview_sprite.centered = true
+	preview_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+	preview_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	preview_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+	preview_sprite.pixel_size = 1.8 / float(CAESAR_SPRITE.get_height())
+	preview_sprite.position = Vector3(0.0, 0.9, 0.0)
+	preview_sprite.modulate = Color(0.12, 0.12, 0.18, 0.85)
+	preview_model_pivot.add_child(preview_sprite)
 
 
 func _refresh_locked_rulers() -> void:
