@@ -86,6 +86,15 @@ var touch_start_pos: Vector2 = Vector2.ZERO
 var is_touch_active: bool = false
 var lane_tween: Tween = null
 
+# Double-tap & swipe gesture tracking
+var last_tap_time: float = -10.0
+var last_tap_pos: Vector2 = Vector2.ZERO
+const DOUBLE_TAP_TIME: float = 0.35
+
+# Speed Boost Launch Ramp Tracking
+var ramp_boost_timer: float = 0.0
+var ramp_speed_bonus: float = 0.0
+
 # Active Ability & Passive State
 var is_invulnerable: bool = false
 var is_ghost_mode: bool = false
@@ -165,9 +174,9 @@ func _setup_camera() -> void:
 		camera.name = "Camera3D"
 		add_child(camera)
 
-	camera.position = Vector3(0.0, 2.3, 4.2)
-	camera.rotation_degrees = Vector3(-12.5, 0.0, 0.0)
-	camera.fov = 72.0
+	camera.position = Vector3(0.0, 3.8, 5.0)
+	camera.rotation_degrees = Vector3(-16.5, 0.0, 0.0)
+	camera.fov = 68.0
 	camera.current = true
 
 
@@ -236,6 +245,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventScreenTouch:
 		if event.is_pressed():
+			var now: float = Time.get_ticks_msec() / 1000.0
+			if now - last_tap_time < DOUBLE_TAP_TIME and (event.position - last_tap_pos).length() < 50.0:
+				if CharacterManager:
+					CharacterManager.trigger_active_ability()
+			last_tap_time = now
+			last_tap_pos = event.position
 			touch_start_pos = event.position
 			is_touch_active = true
 		else:
@@ -250,6 +265,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.is_pressed():
+				var now: float = Time.get_ticks_msec() / 1000.0
+				if now - last_tap_time < DOUBLE_TAP_TIME and (event.position - last_tap_pos).length() < 50.0:
+					if CharacterManager:
+						CharacterManager.trigger_active_ability()
+				last_tap_time = now
+				last_tap_pos = event.position
 				touch_start_pos = event.position
 				is_touch_active = true
 			else:
@@ -336,6 +357,19 @@ func _end_slide() -> void:
 	_set_collision_height(original_shape_height)
 
 
+## Interactive speed ramp boost: launches upward and grants speed boost
+func apply_ramp_boost(vertical_launch: float = 13.5, bonus_speed: float = 6.5, duration: float = 2.5) -> void:
+	if is_sliding:
+		_end_slide()
+	velocity.y = vertical_launch
+	ramp_boost_timer = duration
+	ramp_speed_bonus = bonus_speed
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_ability()
+	if camera:
+		camera.fov = minf(camera.fov + 10.0, 95.0)
+
+
 func _set_collision_height(new_height: float) -> void:
 	if not collision_shape or not collision_shape.shape:
 		return
@@ -368,12 +402,17 @@ func _physics_process(delta: float) -> void:
 			is_invulnerable = false
 			shield_mesh.visible = false
 
-	# Forward Speed
+	# Forward Speed with momentary Ramp Boost
 	var speed_modifier: float = 1.0
 	if CharacterManager and CharacterManager.active_character:
 		speed_modifier = CharacterManager.active_character.base_speed_modifier
 
-	velocity.z = -GameManager.current_speed * speed_modifier
+	var boost: float = 0.0
+	if ramp_boost_timer > 0.0:
+		boost = ramp_speed_bonus * (ramp_boost_timer / 2.5)
+		ramp_boost_timer = maxf(0.0, ramp_boost_timer - delta)
+
+	velocity.z = -(GameManager.current_speed * speed_modifier + boost)
 
 	# Peasant Revolution Flight Mode: Glide smoothly at Y = 2.4m
 	if is_peasant_fever:
@@ -670,8 +709,8 @@ func _apply_character_visuals(character: Resource) -> void:
 	var shadow_inst: MeshInstance3D = MeshInstance3D.new()
 	shadow_inst.name = "ContactShadow"
 	var shadow_mesh: CylinderMesh = CylinderMesh.new()
-	shadow_mesh.top_radius = 0.45
-	shadow_mesh.bottom_radius = 0.45
+	shadow_mesh.top_radius = 0.40
+	shadow_mesh.bottom_radius = 0.40
 	shadow_mesh.height = 0.02
 	var shadow_mat: StandardMaterial3D = StandardMaterial3D.new()
 	shadow_mat.albedo_color = Color(0.06, 0.06, 0.10, 0.50)
@@ -679,7 +718,7 @@ func _apply_character_visuals(character: Resource) -> void:
 	shadow_mat.roughness = 1.0
 	shadow_inst.mesh = shadow_mesh
 	shadow_inst.material_override = shadow_mat
-	shadow_inst.position = Vector3(0.0, 0.02, 0.12)
+	shadow_inst.position = Vector3(0.0, 0.02, 0.05)
 	visual_model.add_child(shadow_inst)
 
 
@@ -772,11 +811,11 @@ func _update_dynamic_camera(delta: float) -> void:
 	var target_fov: float = lerpf(72.0, 84.0, speed_ratio)
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
-	# 2. Footstep micro-bobbing synchronized with running stride
+	# 2. Footstep micro-bobbing synchronized with running stride around elevated base y=3.8
 	if is_on_floor() and not is_sliding and not GameManager.is_game_over:
-		camera.position.y = 2.3 + sin(run_anim_time * 2.0) * 0.025
+		camera.position.y = 3.8 + sin(run_anim_time * 2.0) * 0.025
 	else:
-		camera.position.y = lerpf(camera.position.y, 2.3, 6.0 * delta)
+		camera.position.y = lerpf(camera.position.y, 3.8, 6.0 * delta)
 
 	# 3. Dynamic banking roll when switching lanes
 	camera.rotation.z = lerpf(camera.rotation.z, banking_tilt * 0.45, 8.0 * delta)

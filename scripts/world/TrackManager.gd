@@ -543,20 +543,22 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			return body
 
 		ObstacleCategory.JUMP_RAMP:
-			# Interactive Launch Ramp
-			var body: StaticBody3D = StaticBody3D.new()
-			body.name = "Obstacle_JumpRamp"
+			# Interactive Speed Launch Ramp (Boosts player speed & launches upward)
+			var body: Node3D = Node3D.new()
+			body.name = "Speed_JumpRamp"
 
 			var ramp_area: Area3D = Area3D.new()
 			ramp_area.name = "RampTrigger"
 			ramp_area.set_script(JumpRampScript)
 			ramp_area.set("launch_velocity", 13.5)
+			ramp_area.set("speed_boost", 6.5)
+			ramp_area.set("boost_duration", 2.5)
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 0.8, 2.5)
+			box.size = Vector3(2.2, 1.0, 2.8)
 			col.shape = box
-			col.position = Vector3(0.0, 0.4, 0.0)
+			col.position = Vector3(0.0, 0.5, 0.0)
 			ramp_area.add_child(col)
 
 			var visual = JUMP_RAMP_SCN.instantiate()

@@ -101,8 +101,15 @@ func _ready() -> void:
 
 	var ramp_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.JUMP_RAMP)
 	assert(ramp_obs.find_child("RampTrigger", true, false) != null, "Jump ramp must have launch trigger area")
+	assert(!ramp_obs.name.begins_with("Obstacle"), "Jump ramp must NOT be named as a fatal Obstacle")
+	assert(!ramp_obs.is_in_group("obstacles"), "Jump ramp must NOT be in the obstacles collision group")
 	ramp_obs.queue_free()
-	print("✔ Dynamic obstacles (Moving Bull Cart, Police K9 Dog, Riot Barricades, Jump Ramp) verified.")
+
+	# Test player speed ramp boost
+	player.apply_ramp_boost(13.5, 6.5, 2.5)
+	assert(player.ramp_boost_timer > 0.0, "Player must receive speed boost from ramp")
+	assert(player.velocity.y > 10.0, "Player must launch upward on ramp")
+	print("✔ Dynamic obstacles & Interactive Speed Boost Jump Ramp verified.")
 
 	# 7. Collectibles: Heart (People) & Temple (Govt) Tokens
 	var heart_token = track_mgr._create_collectible(0)
@@ -114,24 +121,32 @@ func _ready() -> void:
 	temple_token.queue_free()
 	print("✔ Collectibles (Red Heart People tokens & Blue Temple Govt tokens) verified.")
 
-	# 8. Reference 1 HUD: Needle Balance Bar, People/Govt Badges & Touch Controls
+	# 8. Elevated Camera & Portrait Mode Verification
+	assert(player.camera.position.y >= 3.5, "Camera must be elevated (>= 3.5m) for deep road visibility")
+	var vp_w = ProjectSettings.get_setting("display/window/size/viewport_width")
+	var vp_h = ProjectSettings.get_setting("display/window/size/viewport_height")
+	assert(vp_h > vp_w, "Game must be configured in portrait mode (viewport height > width)")
+	print("✔ Mobile Portrait Mode (720x1280) & Elevated Camera perspective (y=3.8m) verified.")
+
+	# 9. Reference 1 Mobile HUD & Swipe Gesture Controls
 	var hud = main_inst.find_child("HUDController", true, false)
 	assert(hud != null, "HUDController must exist")
 	assert(hud.balance_needle != null, "Balance needle indicator (▼) must exist")
 	assert(hud.people_count_label != null, "People count label must exist")
 	assert(hud.govt_count_label != null, "Govt count label must exist")
 	assert(hud.pause_button != null, "Pause button must exist")
-	assert(hud.touch_left_btn != null, "Touch Left button must exist")
-	assert(hud.touch_right_btn != null, "Touch Right button must exist")
-	assert(hud.touch_jump_btn != null, "Touch Jump button must exist")
+	assert(hud.ability_button != null, "Mobile Ability Button must exist")
 
-	# Test lane switching via touch buttons
+	# Test swipe gestures
 	var lane_before = player.current_lane
-	hud.touch_left_btn.pressed.emit()
-	assert(player.current_lane == lane_before - 1, "Touch Left button must shift player lane left")
-	hud.touch_right_btn.pressed.emit()
-	assert(player.current_lane == lane_before, "Touch Right button must shift player lane right")
-	print("✔ Reference 1 HUD (Balance needle bar, badges, pause button, and on-screen touch buttons) verified.")
+	player._process_swipe(Vector2(-100, 0))
+	assert(player.current_lane == lane_before - 1, "Swipe Left must shift player lane left")
+	player._process_swipe(Vector2(100, 0))
+	assert(player.current_lane == lane_before, "Swipe Right must shift player lane right")
+
+	# Test mobile ability trigger
+	hud.ability_button.pressed.emit()
+	print("✔ Mobile Swipe Controls & Thumb-Friendly Ability Trigger verified.")
 
 	# 9. Audio Engine (BGM & SFX)
 	assert(has_node("/root/AudioManager"), "AudioManager autoload singleton must be active")

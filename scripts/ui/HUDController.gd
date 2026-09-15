@@ -347,7 +347,7 @@ func _on_ability_deactivated(character: Resource) -> void:
 
 func _on_cooldown_updated(time_remaining: float, max_cooldown: float) -> void:
 	if time_remaining <= 0.0:
-		ability_status_label.text = "READY [E]"
+		ability_status_label.text = "READY [TAP]"
 		ability_status_label.modulate = Color(0.3, 1.0, 0.5)
 		ability_progress_bar.value = 0.0
 	else:
@@ -369,7 +369,7 @@ func _update_character_ui(character: Resource) -> void:
 	if ability_name_label:
 		ability_name_label.text = str(character.get("active_ability_name"))
 	if ability_status_label:
-		ability_status_label.text = "READY [E]"
+		ability_status_label.text = "READY [TAP]"
 		ability_status_label.modulate = Color(0.3, 1.0, 0.5)
 
 
