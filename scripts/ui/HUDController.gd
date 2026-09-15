@@ -5,13 +5,24 @@
 extends Control
 class_name HUDController
 
-# --- Top Bar ---
-@onready var people_bar: ProgressBar = $TopBar/HBoxContainer/PeopleContainer/PeopleBar
-@onready var people_label: Label = $TopBar/HBoxContainer/PeopleContainer/PeopleValue
-@onready var govt_bar: ProgressBar = $TopBar/HBoxContainer/GovtContainer/GovtBar
-@onready var govt_label: Label = $TopBar/HBoxContainer/GovtContainer/GovtValue
-@onready var distance_label: Label = $TopBar/HBoxContainer/CenterContainer/DistanceLabel
-@onready var speed_label: Label = $TopBar/HBoxContainer/CenterContainer/SpeedLabel
+# --- Top Bar Nodes ---
+@onready var people_bar: ProgressBar = get_node_or_null("TopBar/HBoxContainer/PeopleContainer/PeopleBar")
+@onready var people_label: Label = get_node_or_null("TopBar/HBoxContainer/PeopleContainer/PeopleValue")
+@onready var govt_bar: ProgressBar = get_node_or_null("TopBar/HBoxContainer/GovtContainer/GovtBar")
+@onready var govt_label: Label = get_node_or_null("TopBar/HBoxContainer/GovtContainer/GovtValue")
+@onready var distance_label: Label = get_node_or_null("TopBar/HBoxContainer/CenterContainer/DistanceLabel")
+@onready var speed_label: Label = get_node_or_null("TopBar/HBoxContainer/CenterContainer/SpeedLabel")
+
+# Reference 1 Visual Elements
+@onready var balance_needle: Label = get_node_or_null("TopBar/HBoxContainer/CenterContainer/BalanceWidget/NeedleTrack/Needle")
+@onready var people_count_label: Label = get_node_or_null("TopBar/HBoxContainer/PeopleBadge/HBox/VBox/PeopleCount")
+@onready var govt_count_label: Label = get_node_or_null("TopBar/HBoxContainer/GovtBadge/HBox/VBox/GovtCount")
+@onready var pause_button: Button = get_node_or_null("TopBar/HBoxContainer/PauseButton")
+
+# Touch Control Buttons
+@onready var touch_left_btn: Button = get_node_or_null("BottomControls/LeftControls/ButtonHBox/TouchLeft")
+@onready var touch_right_btn: Button = get_node_or_null("BottomControls/LeftControls/ButtonHBox/TouchRight")
+@onready var touch_jump_btn: Button = get_node_or_null("BottomControls/RightControls/TouchJump")
 
 # Banners
 @onready var banner_panel: PanelContainer = $NotificationBanner
@@ -104,12 +115,38 @@ func _ready() -> void:
 	if menu_button:
 		menu_button.pressed.connect(_on_menu_pressed)
 
+	if pause_button:
+		pause_button.pressed.connect(_on_pause_button_pressed)
+
+	if touch_left_btn:
+		touch_left_btn.pressed.connect(func():
+			var p = get_tree().get_first_node_in_group("player")
+			if p and p.has_method("switch_lane"):
+				p.switch_lane(-1)
+		)
+
+	if touch_right_btn:
+		touch_right_btn.pressed.connect(func():
+			var p = get_tree().get_first_node_in_group("player")
+			if p and p.has_method("switch_lane"):
+				p.switch_lane(1)
+		)
+
+	if touch_jump_btn:
+		touch_jump_btn.pressed.connect(func():
+			var p = get_tree().get_first_node_in_group("player")
+			if p and p.has_method("jump"):
+				p.jump()
+		)
+
 
 func _process(delta: float) -> void:
 	if not GameManager.is_game_over:
 		var dist_int: int = int(GameManager.distance_traveled)
-		distance_label.text = "%s m" % _format_number_with_commas(dist_int)
-		speed_label.text = "SPEED: %.1f m/s" % GameManager.current_speed
+		if distance_label:
+			distance_label.text = "%s m" % _format_number_with_commas(dist_int)
+		if speed_label:
+			speed_label.text = "SPEED: %.1f m/s" % GameManager.current_speed
 
 		# Update active ability duration text if active
 		if CharacterManager and CharacterManager.is_ability_active:
@@ -127,17 +164,26 @@ func _process(delta: float) -> void:
 				boss_countdown_label.text = "VICTORY!"
 
 		# Pulse warning alert on critical political meters
-		if GameManager.people_power <= 20.0 or GameManager.people_power >= 80.0:
-			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-			people_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
-		else:
-			people_label.modulate = Color.WHITE
+		if people_label:
+			if GameManager.people_power <= 20.0 or GameManager.people_power >= 80.0:
+				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+				people_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
+			else:
+				people_label.modulate = Color.WHITE
 
-		if GameManager.govt_power <= 20.0 or GameManager.govt_power >= 80.0:
-			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-			govt_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
-		else:
-			govt_label.modulate = Color.WHITE
+		if govt_label:
+			if GameManager.govt_power <= 20.0 or GameManager.govt_power >= 80.0:
+				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+				govt_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
+			else:
+				govt_label.modulate = Color.WHITE
+
+
+func _on_pause_button_pressed() -> void:
+	var paused = get_tree().paused
+	get_tree().paused = !paused
+	if pause_button:
+		pause_button.text = "▶" if get_tree().paused else "⏸"
 
 
 func _on_power_changed(people: float, govt: float) -> void:
@@ -159,6 +205,8 @@ func _on_power_changed(people: float, govt: float) -> void:
 	if govt_label:
 		govt_label.text = "%d%%" % int(govt)
 
+	_update_meter_visuals(people, govt)
+
 
 func _update_meter_visuals(people: float, govt: float) -> void:
 	if people_bar:
@@ -169,6 +217,21 @@ func _update_meter_visuals(people: float, govt: float) -> void:
 		govt_bar.value = govt
 	if govt_label:
 		govt_label.text = "%d%%" % int(govt)
+
+	# Reference 1: Balance needle indicator and support token counters
+	if balance_needle:
+		var total: float = maxf(people + govt, 1.0)
+		var ratio: float = clampf(people / total, 0.05, 0.95)
+		# Bar width is 220, travel from x=10 to x=210
+		var target_x: float = ratio * 200.0 + 10.0 - (balance_needle.size.x * 0.5)
+		var tween: Tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(balance_needle, "position:x", target_x, 0.2)
+
+	if people_count_label:
+		people_count_label.text = "%d" % int(people * 4.8)
+
+	if govt_count_label:
+		govt_count_label.text = "%d" % int(govt * 4.2)
 
 
 # --- Phase 5 Timeline Codex Popup ---

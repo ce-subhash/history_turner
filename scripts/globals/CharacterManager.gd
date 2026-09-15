@@ -5,6 +5,7 @@ extends Node
 
 # --- Preloaded Character Resource Class & Catalog ---
 const CharacterDataScript = preload("res://scripts/resources/CharacterData.gd")
+const CHIBI_RES = preload("res://resources/characters/chibi_leader.tres")
 const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
@@ -37,9 +38,9 @@ var is_ability_active: bool = false
 
 
 func _ready() -> void:
-	# Default to Julius Caesar on startup
+	# Default to Chibi Leader on startup
 	if not active_character:
-		select_character(CAESAR_RES)
+		select_character(CHIBI_RES)
 
 	if GameManager:
 		GameManager.game_restarted.connect(_on_game_restarted)

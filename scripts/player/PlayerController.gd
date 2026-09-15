@@ -10,6 +10,17 @@ const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 
 # --- Character Sprite Manifest (Pure Direct Rear View 0° Azimuth) ---
 const CHARACTER_SPRITES = {
+	"Chibi Leader": {
+		"run1": preload("res://assets/sprites/characters/chibi_rear_run1.png"),
+		"run2": preload("res://assets/sprites/characters/chibi_rear_run2.png"),
+		"jump": preload("res://assets/sprites/characters/chibi_rear_jump.png"),
+		"slide": preload("res://assets/sprites/characters/chibi_rear_slide.png"),
+		"modulate": Color(1.0, 1.0, 1.0),
+		"light_color": Color(1.0, 0.95, 0.88),
+		"light_energy": 2.2,
+		"light_range": 10.0,
+		"light_offset": Vector3(0.0, 1.2, 0.1)
+	},
 	"Julius Caesar": {
 		"run1": preload("res://assets/sprites/characters/caesar_rear_run1.png"),
 		"run2": preload("res://assets/sprites/characters/caesar_rear_run2.png"),
@@ -97,7 +108,7 @@ var emergency_shield_timer: float = 0.0
 # Pure Rear-View 2.5D Character Sprite & Lighting
 var character_sprite: Sprite3D = null
 var character_light: OmniLight3D = null
-var active_character_name: String = "Julius Caesar"
+var active_character_name: String = "Chibi Leader"
 var run_anim_time: float = 0.0
 var banking_tilt: float = 0.0
 var dust_particles: CPUParticles3D = null
@@ -618,9 +629,9 @@ func _apply_character_visuals(character: Resource) -> void:
 		visual_model.remove_child(child)
 		child.queue_free()
 
-	active_character_name = character.get("character_name") if character else "Julius Caesar"
+	active_character_name = character.get("character_name") if character else "Chibi Leader"
 	if not CHARACTER_SPRITES.has(active_character_name):
-		active_character_name = "Julius Caesar"
+		active_character_name = "Chibi Leader"
 
 	var char_data = CHARACTER_SPRITES[active_character_name]
 	var run1_texture: Texture2D = char_data["run1"]
@@ -654,6 +665,22 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_light.position = char_data["light_offset"]
 	character_light.shadow_enabled = false
 	character_sprite.add_child(character_light)
+
+	# Soft ground contact shadow
+	var shadow_inst: MeshInstance3D = MeshInstance3D.new()
+	shadow_inst.name = "ContactShadow"
+	var shadow_mesh: CylinderMesh = CylinderMesh.new()
+	shadow_mesh.top_radius = 0.45
+	shadow_mesh.bottom_radius = 0.45
+	shadow_mesh.height = 0.02
+	var shadow_mat: StandardMaterial3D = StandardMaterial3D.new()
+	shadow_mat.albedo_color = Color(0.06, 0.06, 0.10, 0.50)
+	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_mat.roughness = 1.0
+	shadow_inst.mesh = shadow_mesh
+	shadow_inst.material_override = shadow_mat
+	shadow_inst.position = Vector3(0.0, 0.02, 0.12)
+	visual_model.add_child(shadow_inst)
 
 
 ## Procedurally animates 2.5D sprite bobbing, multi-frame run cycle, banking, and state textures.

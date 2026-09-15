@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://cxseyfh7dyt5i"]
+
+[ext_resource type="Script" path="res://scripts/resources/CharacterData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+character_name = "Chibi Leader"
+era_name = "Modern Republic (2026)"
+base_speed_modifier = 1.0
+active_ability_name = "People's Mandate"
+active_duration = 6.0
+active_cooldown = 18.0
+passive_perk_type = "popular_mandate"
+ability_description = "Unleashes popular momentum; grants invulnerability and attracts all tokens for 6s."
+passive_description = "Popular Mandate: Political balance recovers faster toward the center."
+theme_color = Color(1.0, 0.45, 0.15, 1)
+difficulty_rating = "Balanced / Leader"

@@ -1,51 +1,55 @@
 ## TrackManager.gd
-## Procedural 3D endless runner track spawner.
-## Manages chunk pooling, road mesh generation, procedural obstacles,
-## collectible power tokens, Decision Gates, Chronos Fracture Era Shifts, and Boss Encounters.
+## Procedural 3D endless runner track spawner for the Grand Capital Boulevard.
+## Spawns 3-lane asphalt road with lane markings, yellow/black curbs,
+## sidewalks with cheering crowds holding campaign signs, trees, lampposts,
+## and parliament dome horizon backdrop.
+## Obstacles include: Moving Bull Cart (People), Police K9 Dogs (Police),
+## Police Riot Barricade, Wooden Roadblock, Slide Canopy, and Jump Ramp.
+## Collectibles include: People Support Heart tokens and Govt Support Temple tokens.
 extends Node3D
 class_name TrackManager
 
-# --- Preloaded Scripts & Textures ---
+# --- Preloaded Scripts & 3D Props ---
 const DecisionGateScript = preload("res://scripts/world/DecisionGate.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
 const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
+const MovingObstacleScript = preload("res://scripts/world/MovingObstacle.gd")
+const JumpRampScript = preload("res://scripts/world/JumpRamp.gd")
 
-const PILLAR_SCN = preload("res://assets/sprites/props/roman_pillar.glb")
-const AQUEDUCT_SCN = preload("res://assets/sprites/props/roman_aqueduct.glb")
-const BRAZIER_SCN = preload("res://assets/sprites/props/curbside_brazier.glb")
+# 3D GLB Props
+const BULL_CART_SCN = preload("res://assets/sprites/props/bull_cart.glb")
+const POLICE_DOG_SCN = preload("res://assets/sprites/props/police_dog.glb")
+const POLICE_BARRICADE_SCN = preload("res://assets/sprites/props/police_barricade.glb")
+const WOODEN_ROADBLOCK_SCN = preload("res://assets/sprites/props/wooden_roadblock.glb")
+const SLIDE_TUNNEL_SCN = preload("res://assets/sprites/props/slide_tunnel.glb")
+const JUMP_RAMP_SCN = preload("res://assets/sprites/props/jump_ramp.glb")
+const BOULEVARD_TREE_SCN = preload("res://assets/sprites/props/boulevard_tree.glb")
+const LAMPPOST_SCN = preload("res://assets/sprites/props/street_lamppost.glb")
+const CROWD_SIDEWALK_SCN = preload("res://assets/sprites/props/crowd_sidewalk.glb")
+const PARLIAMENT_DOME_SCN = preload("res://assets/sprites/props/parliament_dome.glb")
 
-const ROAD_ROMAN_TEX = preload("res://assets/sprites/environment/road_roman_pbr.png")
-const COLLECTIBLE_FIST_TEX = preload("res://assets/sprites/props/collectible_fist.png")
-const COLLECTIBLE_CROWN_TEX = preload("res://assets/sprites/props/collectible_crown.png")
-const BARRICADE_TEX = preload("res://assets/sprites/props/obstacle_barricade.png")
+# 2D Tokens
+const TOKEN_HEART_TEX = preload("res://assets/sprites/props/token_heart.png")
+const TOKEN_TEMPLE_TEX = preload("res://assets/sprites/props/token_temple.png")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
-const ROAD_WIDTH: float = 10.0
-const ROAD_THICKNESS: float = 0.2
+const ROAD_WIDTH: float = 8.6
+const ROAD_THICKNESS: float = 0.25
 const MAX_ACTIVE_CHUNKS: int = 6
 const LANES: Array[float] = [-2.5, 0.0, 2.5]
 
-const DECISION_GATE_INTERVAL: float = 300.0
+const DECISION_GATE_INTERVAL: float = 350.0
 const BOSS_ENCOUNTER_INTERVAL: float = 1500.0
-const ERA_PORTAL_INTERVAL: float = 2000.0
+const ERA_PORTAL_INTERVAL: float = 2500.0
 
-# --- Historical Eras ---
-enum EraTheme {
-	ROMAN_MARBLE,      # Roman Republic (Default)
-	FEUDAL_BAMBOO,     # Feudal Dynasty
-	INDUSTRIAL_STEEL   # Industrial Revolution
-}
-
-var current_era: EraTheme = EraTheme.ROMAN_MARBLE
-
-# Obstacle Type Enum
-enum ObstacleType {
-	NONE,
-	LOW_HURDLE,
-	HIGH_ARCH,
-	SOLID_BLOCK
+enum ObstacleCategory {
+	BULL_CART,        # Moving bull cart (Normal People faction)
+	POLICE_DOG,       # Police K9 dog patrol (Police faction)
+	POLICE_BARRICADE, # Riot police barricade with shields (Police faction)
+	WOODEN_ROADBLOCK, # Timber barricade with NO ENTRY plaque
+	JUMP_RAMP         # Blue steel launch ramp
 }
 
 # --- Exported Properties ---
@@ -63,16 +67,16 @@ var distance_since_last_boss: float = 0.0
 var distance_since_last_portal: float = 0.0
 var is_boss_active: bool = false
 
-# Cached Materials
-var road_material: StandardMaterial3D
-var lane_marker_material: StandardMaterial3D
-var valley_material: StandardMaterial3D
-var curb_material: StandardMaterial3D
-var hurdle_material: StandardMaterial3D
-var arch_material: StandardMaterial3D
-var block_material: StandardMaterial3D
-var fist_material: StandardMaterial3D
-var crown_material: StandardMaterial3D
+# Shared Materials
+var asphalt_material: StandardMaterial3D
+var lane_stripe_material: StandardMaterial3D
+var curb_yellow_material: StandardMaterial3D
+var curb_black_material: StandardMaterial3D
+var sidewalk_stone_material: StandardMaterial3D
+var ground_grass_material: StandardMaterial3D
+
+# Horizon Parliament Backdrop instance
+var horizon_parliament_node: Node3D = null
 
 
 func _ready() -> void:
@@ -87,7 +91,7 @@ func _ready() -> void:
 	if GameManager:
 		GameManager.boss_ended.connect(func(_vic): is_boss_active = false)
 
-	_apply_era_styling(current_era)
+	_spawn_horizon_parliament()
 	_spawn_initial_tracks()
 
 
@@ -96,6 +100,10 @@ func _process(_delta: float) -> void:
 		return
 
 	var player_z: float = player_node.global_position.z
+
+	# Keep horizon parliament dome centered in the far background
+	if horizon_parliament_node:
+		horizon_parliament_node.position.z = player_z - 120.0
 
 	while next_spawn_z > player_z - (MAX_ACTIVE_CHUNKS * CHUNK_LENGTH):
 		_spawn_next_chunk()
@@ -107,120 +115,47 @@ func _process(_delta: float) -> void:
 			active_chunks.remove_at(0)
 
 
-## Initializes shared materials with baseline properties.
 func _init_materials() -> void:
-	road_material = StandardMaterial3D.new()
-	road_material.albedo_texture = ROAD_ROMAN_TEX
-	road_material.uv1_scale = Vector3(2.5, 7.5, 1.0)
-	road_material.roughness = 0.70
-	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# 1. Asphalt Road Material
+	asphalt_material = StandardMaterial3D.new()
+	asphalt_material.albedo_color = Color(0.24, 0.25, 0.27)
+	asphalt_material.roughness = 0.82
+	asphalt_material.metallic = 0.05
 
-	lane_marker_material = StandardMaterial3D.new()
-	lane_marker_material.albedo_color = Color(0.95, 0.78, 0.35)
-	lane_marker_material.metallic = 0.85
-	lane_marker_material.roughness = 0.30
-	lane_marker_material.emission_enabled = true
-	lane_marker_material.emission = Color(0.95, 0.75, 0.3) * 0.35
+	# 2. Crisp White Lane Stripe Material
+	lane_stripe_material = StandardMaterial3D.new()
+	lane_stripe_material.albedo_color = Color(0.96, 0.96, 0.94)
+	lane_stripe_material.roughness = 0.4
+	lane_stripe_material.emission_enabled = true
+	lane_stripe_material.emission = Color(0.96, 0.96, 0.94) * 0.15
 
-	valley_material = StandardMaterial3D.new()
-	valley_material.albedo_color = Color(0.14, 0.12, 0.16)
-	valley_material.roughness = 0.95
+	# 3. Yellow and Black Curbs
+	curb_yellow_material = StandardMaterial3D.new()
+	curb_yellow_material.albedo_color = Color(0.95, 0.76, 0.12)
+	curb_yellow_material.roughness = 0.5
 
-	curb_material = StandardMaterial3D.new()
-	curb_material.albedo_color = Color(0.80, 0.78, 0.75)
-	curb_material.roughness = 0.6
+	curb_black_material = StandardMaterial3D.new()
+	curb_black_material.albedo_color = Color(0.12, 0.12, 0.14)
+	curb_black_material.roughness = 0.6
 
-	hurdle_material = StandardMaterial3D.new()
-	hurdle_material.emission_enabled = true
+	# 4. Sidewalk Stone Pavement
+	sidewalk_stone_material = StandardMaterial3D.new()
+	sidewalk_stone_material.albedo_color = Color(0.82, 0.78, 0.70)
+	sidewalk_stone_material.roughness = 0.75
 
-	arch_material = StandardMaterial3D.new()
-	arch_material.emission_enabled = true
-
-	block_material = StandardMaterial3D.new()
-	block_material.emission_enabled = true
-
-	# Collectibles
-	fist_material = StandardMaterial3D.new()
-	fist_material.albedo_color = Color(1.0, 0.22, 0.28)
-	fist_material.emission_enabled = true
-	fist_material.emission = Color(1.0, 0.22, 0.28)
-	fist_material.emission_energy_multiplier = 1.2
-
-	crown_material = StandardMaterial3D.new()
-	crown_material.albedo_color = Color(0.25, 0.65, 1.0)
-	crown_material.emission_enabled = true
-	crown_material.emission = Color(0.25, 0.65, 1.0)
-	crown_material.emission_energy_multiplier = 1.2
+	# 5. Grass Ground Fill
+	ground_grass_material = StandardMaterial3D.new()
+	ground_grass_material.albedo_color = Color(0.28, 0.52, 0.22)
+	ground_grass_material.roughness = 0.9
 
 
-## Dynamic Era Morphing: Updates materials, colors, and skybox lighting.
-func _apply_era_styling(era: EraTheme) -> void:
-	current_era = era
-	var era_title: String = ""
-
-	match era:
-		EraTheme.ROMAN_MARBLE:
-			era_title = "Roman Republic"
-			# Polished gray/white marble flagstones
-			road_material.albedo_color = Color(1.0, 1.0, 1.0)
-			lane_marker_material.albedo_color = Color(0.95, 0.85, 0.2)
-			lane_marker_material.emission = Color(0.95, 0.8, 0.2) * 0.5
-			curb_material.albedo_color = Color(0.7, 0.72, 0.76)
-			hurdle_material.albedo_color = Color(0.15, 0.75, 0.95)
-			hurdle_material.emission = Color(0.15, 0.75, 0.95) * 0.6
-			arch_material.albedo_color = Color(0.95, 0.7, 0.1)
-			arch_material.emission = Color(0.95, 0.7, 0.1) * 0.6
-			block_material.albedo_color = Color(0.95, 0.25, 0.3)
-			block_material.emission = Color(0.95, 0.25, 0.3) * 0.5
-
-			_update_skybox(Color(0.12, 0.15, 0.22), Color(0.25, 0.30, 0.40), Color(0.18, 0.22, 0.30))
-
-		EraTheme.FEUDAL_BAMBOO:
-			era_title = "Feudal Dynasty"
-			# Mossy dark stone & timber road tint
-			road_material.albedo_color = Color(0.65, 0.78, 0.60)
-			lane_marker_material.albedo_color = Color(0.95, 0.25, 0.15)
-			lane_marker_material.emission = Color(0.95, 0.25, 0.15) * 0.6
-			curb_material.albedo_color = Color(0.4, 0.3, 0.18)
-			hurdle_material.albedo_color = Color(0.4, 0.8, 0.3)
-			hurdle_material.emission = Color(0.3, 0.75, 0.2) * 0.6
-			arch_material.albedo_color = Color(0.9, 0.2, 0.1) # Torii red
-			arch_material.emission = Color(0.9, 0.2, 0.1) * 0.6
-			block_material.albedo_color = Color(0.7, 0.5, 0.25)
-			block_material.emission = Color(0.7, 0.45, 0.2) * 0.5
-
-			_update_skybox(Color(0.28, 0.12, 0.22), Color(0.55, 0.25, 0.20), Color(0.35, 0.18, 0.20))
-
-		EraTheme.INDUSTRIAL_STEEL:
-			era_title = "Industrial Revolution"
-			# Dark industrial cobblestone tint
-			road_material.albedo_color = Color(0.45, 0.48, 0.55)
-			lane_marker_material.albedo_color = Color(1.0, 0.75, 0.1)
-			lane_marker_material.emission = Color(1.0, 0.7, 0.1) * 0.8
-			curb_material.albedo_color = Color(0.25, 0.28, 0.32)
-			hurdle_material.albedo_color = Color(0.9, 0.5, 0.1)
-			hurdle_material.emission = Color(0.9, 0.45, 0.1) * 0.7
-			arch_material.albedo_color = Color(0.2, 0.7, 0.8) # Steam pipe cyan
-			arch_material.emission = Color(0.2, 0.7, 0.8) * 0.6
-			block_material.albedo_color = Color(0.85, 0.2, 0.2)
-			block_material.emission = Color(0.85, 0.2, 0.2) * 0.6
-
-			_update_skybox(Color(0.15, 0.14, 0.12), Color(0.35, 0.26, 0.18), Color(0.25, 0.20, 0.15))
-
-	if GameManager:
-		GameManager.era_shifted.emit(era_title)
-
-
-func _update_skybox(top_col: Color, horizon_col: Color, fog_col: Color) -> void:
-	if not world_env or not world_env.environment:
-		return
-	var env: Environment = world_env.environment
-	if env.sky and env.sky.sky_material is ProceduralSkyMaterial:
-		var sky_mat: ProceduralSkyMaterial = env.sky.sky_material
-		var tween: Tween = create_tween()
-		tween.tween_property(sky_mat, "sky_top_color", top_col, 1.5)
-		tween.parallel().tween_property(sky_mat, "sky_horizon_color", horizon_col, 1.5)
-		tween.parallel().tween_property(env, "fog_light_color", fog_col, 1.5)
+func _spawn_horizon_parliament() -> void:
+	if PARLIAMENT_DOME_SCN:
+		horizon_parliament_node = PARLIAMENT_DOME_SCN.instantiate()
+		horizon_parliament_node.name = "HorizonParliament"
+		horizon_parliament_node.position = Vector3(0.0, 0.0, -120.0)
+		horizon_parliament_node.scale = Vector3(2.5, 2.5, 2.5)
+		add_child(horizon_parliament_node)
 
 
 func _spawn_initial_tracks() -> void:
@@ -241,13 +176,13 @@ func _spawn_next_chunk() -> void:
 	distance_since_last_boss += CHUNK_LENGTH
 	distance_since_last_portal += CHUNK_LENGTH
 
-	# 1. Chronos Fracture Portal (Every 2,000m)
+	# 1. Chronos Fracture Portal (Every 2,500m)
 	var is_portal_chunk: bool = false
 	if distance_since_last_portal >= ERA_PORTAL_INTERVAL:
 		is_portal_chunk = true
 		distance_since_last_portal = 0.0
 
-	# 2. Decision Gate (Every 300m)
+	# 2. Decision Gate (Every 350m)
 	var is_decision_chunk: bool = false
 	if not is_portal_chunk and distance_since_last_gate >= DECISION_GATE_INTERVAL:
 		is_decision_chunk = true
@@ -280,11 +215,6 @@ func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool,
 	elif is_decision_chunk:
 		_spawn_decision_gate(chunk)
 	elif allow_content:
-		if chunks_spawned_count % 2 == 0:
-			var container: Node3D = chunk.get_node("DynamicElements")
-			var aqueduct = AQUEDUCT_SCN.instantiate()
-			aqueduct.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
-			container.add_child(aqueduct)
 		_populate_chunk_obstacles(chunk)
 		_populate_chunk_collectibles(chunk)
 
@@ -293,14 +223,7 @@ func _spawn_temporal_portal(chunk: Node3D) -> void:
 	var container: Node3D = chunk.get_node("DynamicElements")
 	var portal: Area3D = TemporalPortalScript.new()
 	portal.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
-	portal.connect("portal_entered", _on_portal_entered)
 	container.add_child(portal)
-
-
-func _on_portal_entered() -> void:
-	# Cycle to next era
-	var next_era = (current_era + 1) % 3
-	_apply_era_styling(next_era)
 
 
 func _trigger_boss_encounter() -> void:
@@ -329,10 +252,12 @@ func _recycle_chunk(chunk: Node3D) -> void:
 	chunk_pool.append(chunk)
 
 
+## Constructs a Boulevard chunk: 3-lane road, lane markings, striped curbs, sidewalks, crowds, trees, and lampposts.
 func _create_track_chunk() -> Node3D:
 	var chunk: Node3D = Node3D.new()
 	chunk.name = "TrackChunk"
 
+	# Deep road collision body to prevent any physics tunneling
 	var static_body: StaticBody3D = StaticBody3D.new()
 	static_body.name = "RoadBody"
 	chunk.add_child(static_body)
@@ -340,82 +265,100 @@ func _create_track_chunk() -> Node3D:
 	var road_col_depth: float = 4.0
 	var collision_shape: CollisionShape3D = CollisionShape3D.new()
 	var box_shape: BoxShape3D = BoxShape3D.new()
-	box_shape.size = Vector3(ROAD_WIDTH, road_col_depth, CHUNK_LENGTH)
+	box_shape.size = Vector3(ROAD_WIDTH + 6.0, road_col_depth, CHUNK_LENGTH)
 	collision_shape.shape = box_shape
 	collision_shape.position = Vector3(0.0, -road_col_depth * 0.5, -CHUNK_LENGTH * 0.5)
 	static_body.add_child(collision_shape)
 
+	# 1. Asphalt Road Surface
 	var road_mesh_inst: MeshInstance3D = MeshInstance3D.new()
 	var road_box: BoxMesh = BoxMesh.new()
-	road_box.size = Vector3(ROAD_WIDTH, 0.25, CHUNK_LENGTH)
-	road_box.material = road_material
+	road_box.size = Vector3(ROAD_WIDTH, ROAD_THICKNESS, CHUNK_LENGTH)
+	road_box.material = asphalt_material
 	road_mesh_inst.mesh = road_box
-	road_mesh_inst.position = Vector3(0.0, -0.125, -CHUNK_LENGTH * 0.5)
+	road_mesh_inst.position = Vector3(0.0, -ROAD_THICKNESS * 0.5, -CHUNK_LENGTH * 0.5)
 	chunk.add_child(road_mesh_inst)
 
-	# 1. Distant Valley Floor (eliminates the empty void underneath)
-	var valley_inst: MeshInstance3D = MeshInstance3D.new()
-	var valley_mesh: BoxMesh = BoxMesh.new()
-	valley_mesh.size = Vector3(140.0, 1.0, CHUNK_LENGTH)
-	valley_mesh.material = valley_material
-	valley_inst.mesh = valley_mesh
-	valley_inst.position = Vector3(0.0, -14.0, -CHUNK_LENGTH * 0.5)
-	chunk.add_child(valley_inst)
-
-	# 2. Roman Marble Curbs
-	for side in [-1.0, 1.0]:
-		var curb_inst: MeshInstance3D = MeshInstance3D.new()
-		var curb_mesh: BoxMesh = BoxMesh.new()
-		curb_mesh.size = Vector3(0.45, 0.35, CHUNK_LENGTH)
-		curb_mesh.material = curb_material
-		curb_inst.mesh = curb_mesh
-		curb_inst.position = Vector3(side * (ROAD_WIDTH * 0.5 - 0.22), 0.1, -CHUNK_LENGTH * 0.5)
-		chunk.add_child(curb_inst)
-
-	# 3. Ancient Bronze Lane Dividers & Marble Inlay Grooves (Replacing modern yellow dashed lines)
+	# 2. White Lane Dividers (Dashed markings between lanes)
 	for div_x in [-1.25, 1.25]:
-		var groove_inst: MeshInstance3D = MeshInstance3D.new()
-		var groove_mesh: BoxMesh = BoxMesh.new()
-		groove_mesh.size = Vector3(0.06, 0.015, CHUNK_LENGTH)
-		groove_mesh.material = lane_marker_material
-		groove_inst.mesh = groove_mesh
-		groove_inst.position = Vector3(div_x, 0.008, -CHUNK_LENGTH * 0.5)
-		chunk.add_child(groove_inst)
+		for s in range(5):
+			var stripe: MeshInstance3D = MeshInstance3D.new()
+			var s_box: BoxMesh = BoxMesh.new()
+			s_box.size = Vector3(0.14, 0.015, 3.2)
+			s_box.material = lane_stripe_material
+			stripe.mesh = s_box
+			stripe.position = Vector3(div_x, 0.008, -(s * 6.0 + 3.0))
+			chunk.add_child(stripe)
 
-		for s in range(10):
-			var stud_inst: MeshInstance3D = MeshInstance3D.new()
-			var stud_mesh: CylinderMesh = CylinderMesh.new()
-			stud_mesh.top_radius = 0.09
-			stud_mesh.bottom_radius = 0.12
-			stud_mesh.height = 0.035
-			stud_mesh.material = lane_marker_material
-			stud_inst.mesh = stud_mesh
-			stud_inst.position = Vector3(div_x, 0.018, -(s * 3.0 + 1.5))
-			chunk.add_child(stud_inst)
+	# Solid White Road Edge Lines
+	for edge_x in [-ROAD_WIDTH * 0.5 + 0.15, ROAD_WIDTH * 0.5 - 0.15]:
+		var edge_line: MeshInstance3D = MeshInstance3D.new()
+		var e_box: BoxMesh = BoxMesh.new()
+		e_box.size = Vector3(0.14, 0.015, CHUNK_LENGTH)
+		e_box.material = lane_stripe_material
+		edge_line.mesh = e_box
+		edge_line.position = Vector3(edge_x, 0.008, -CHUNK_LENGTH * 0.5)
+		chunk.add_child(edge_line)
 
-	# 4. Roman Colonnade (Pillars & Fire Braziers along track borders)
+	# 3. Yellow and Black Striped Curbs
 	for side in [-1.0, 1.0]:
-		var col_x: float = side * (ROAD_WIDTH * 0.5 + 1.4)
-		# Fluted Roman Columns
-		for p_i in range(4):
-			var pillar = PILLAR_SCN.instantiate()
-			pillar.position = Vector3(col_x, 0.0, -(p_i * 7.5 + 3.75))
-			chunk.add_child(pillar)
+		var curb_x: float = side * (ROAD_WIDTH * 0.5 + 0.18)
+		for s in range(10):
+			var curb_seg: MeshInstance3D = MeshInstance3D.new()
+			var c_box: BoxMesh = BoxMesh.new()
+			c_box.size = Vector3(0.36, 0.28, 3.0)
+			c_box.material = curb_yellow_material if s % 2 == 0 else curb_black_material
+			curb_seg.mesh = c_box
+			curb_seg.position = Vector3(curb_x, 0.10, -(s * 3.0 + 1.5))
+			chunk.add_child(curb_seg)
 
-		# Curbside Fire Braziers with warm point lights
-		for b_i in range(2):
-			var brazier = BRAZIER_SCN.instantiate()
-			var b_z: float = -(b_i * 15.0 + 7.5)
-			brazier.position = Vector3(col_x, 0.0, b_z)
-			chunk.add_child(brazier)
+	# 4. Sidewalks on Left and Right
+	for side in [-1.0, 1.0]:
+		var sidewalk_x: float = side * (ROAD_WIDTH * 0.5 + 2.2)
+		var sidewalk_mesh_inst: MeshInstance3D = MeshInstance3D.new()
+		var sw_box: BoxMesh = BoxMesh.new()
+		sw_box.size = Vector3(3.6, 0.24, CHUNK_LENGTH)
+		sw_box.material = sidewalk_stone_material
+		sidewalk_mesh_inst.mesh = sw_box
+		sidewalk_mesh_inst.position = Vector3(sidewalk_x, 0.08, -CHUNK_LENGTH * 0.5)
+		chunk.add_child(sidewalk_mesh_inst)
 
-			var flame_light = OmniLight3D.new()
-			flame_light.light_color = Color(1.0, 0.65, 0.25)
-			flame_light.light_energy = 1.6
-			flame_light.omni_range = 8.0
-			flame_light.omni_attenuation = 1.4
-			flame_light.position = Vector3(col_x, 1.4, b_z)
-			chunk.add_child(flame_light)
+		# Grass Park Lawn beyond sidewalk
+		var grass_x: float = side * (ROAD_WIDTH * 0.5 + 12.0)
+		var grass_inst: MeshInstance3D = MeshInstance3D.new()
+		var grass_box: BoxMesh = BoxMesh.new()
+		grass_box.size = Vector3(16.0, 0.20, CHUNK_LENGTH)
+		grass_box.material = ground_grass_material
+		grass_inst.mesh = grass_box
+		grass_inst.position = Vector3(grass_x, 0.04, -CHUNK_LENGTH * 0.5)
+		chunk.add_child(grass_inst)
+
+		# Street Trees along sidewalk
+		var tree1 = BOULEVARD_TREE_SCN.instantiate()
+		tree1.name = "BoulevardTree1"
+		tree1.position = Vector3(side * (ROAD_WIDTH * 0.5 + 3.2), 0.0, -8.0)
+		chunk.add_child(tree1)
+
+		var tree2 = BOULEVARD_TREE_SCN.instantiate()
+		tree2.name = "BoulevardTree2"
+		tree2.position = Vector3(side * (ROAD_WIDTH * 0.5 + 3.2), 0.0, -22.0)
+		chunk.add_child(tree2)
+
+		# Ornate Vintage Street Lampposts
+		var lamp = LAMPPOST_SCN.instantiate()
+		lamp.name = "StreetLamppost"
+		lamp.position = Vector3(side * (ROAD_WIDTH * 0.5 + 1.2), 0.0, -15.0)
+		chunk.add_child(lamp)
+
+		# Cheering Crowds holding campaign signs along the outer sidewalk
+		var crowd = CROWD_SIDEWALK_SCN.instantiate()
+		crowd.name = "CrowdSidewalk"
+		crowd.position = Vector3(side * (ROAD_WIDTH * 0.5 + 3.2), 0.0, -15.0)
+		if side < 0:
+			crowd.rotation_degrees.y = 180.0
+		else:
+			crowd.rotation_degrees.y = 0.0
+		chunk.add_child(crowd)
 
 	var dynamic_container: Node3D = Node3D.new()
 	dynamic_container.name = "DynamicElements"
@@ -439,18 +382,24 @@ func _populate_chunk_obstacles(chunk: Node3D) -> void:
 
 		for i in range(blocked_count):
 			var lane_x: float = lanes_shuffled[i]
-			var type_roll: float = randf()
-			var obs_type: ObstacleType
-			if type_roll < 0.35:
-				obs_type = ObstacleType.LOW_HURDLE
-			elif type_roll < 0.70:
-				obs_type = ObstacleType.HIGH_ARCH
-			else:
-				obs_type = ObstacleType.SOLID_BLOCK
-
-			var obstacle_node: Node3D = _create_obstacle(obs_type)
+			var obs_cat: ObstacleCategory = _pick_random_obstacle_category()
+			var obstacle_node: Node3D = _create_obstacle(obs_cat)
 			obstacle_node.position = Vector3(lane_x, 0.0, z_offset)
 			container.add_child(obstacle_node)
+
+
+func _pick_random_obstacle_category() -> ObstacleCategory:
+	var roll: float = randf()
+	if roll < 0.25:
+		return ObstacleCategory.BULL_CART        # Moving Bull Cart (People)
+	elif roll < 0.48:
+		return ObstacleCategory.POLICE_DOG       # Police Dog (Police)
+	elif roll < 0.70:
+		return ObstacleCategory.POLICE_BARRICADE # Police Riot Barricade (Police)
+	elif roll < 0.88:
+		return ObstacleCategory.WOODEN_ROADBLOCK # Wooden Roadblock
+	else:
+		return ObstacleCategory.JUMP_RAMP        # Jump Ramp
 
 
 func _populate_chunk_collectibles(chunk: Node3D) -> void:
@@ -462,9 +411,9 @@ func _populate_chunk_collectibles(chunk: Node3D) -> void:
 			continue
 
 		var lane_x: float = LANES.pick_random()
-		var is_fist: bool = randf() < 0.50
+		var is_heart: bool = randf() < 0.50
 		var token: Area3D = _create_collectible(
-			CollectibleScript.CollectibleType.PEOPLE_FIST if is_fist else CollectibleScript.CollectibleType.GOVT_CROWN
+			CollectibleScript.CollectibleType.PEOPLE_FIST if is_heart else CollectibleScript.CollectibleType.GOVT_CROWN
 		)
 		token.position = Vector3(lane_x, 0.9, z_pos)
 		container.add_child(token)
@@ -485,19 +434,19 @@ func _create_collectible(type: int) -> Area3D:
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	sprite.pixel_size = 0.85 / 1024.0
+	sprite.pixel_size = 0.85 / 512.0
 
 	var light: OmniLight3D = OmniLight3D.new()
 	light.omni_range = 5.0
 	light.omni_attenuation = 1.3
 
 	if type == CollectibleScript.CollectibleType.PEOPLE_FIST:
-		sprite.texture = COLLECTIBLE_FIST_TEX
+		sprite.texture = TOKEN_HEART_TEX
 		light.light_color = Color(1.0, 0.22, 0.28)
 		light.light_energy = 2.4
 	else:
-		sprite.texture = COLLECTIBLE_CROWN_TEX
-		light.light_color = Color(0.28, 0.72, 1.0)
+		sprite.texture = TOKEN_TEMPLE_TEX
+		light.light_color = Color(0.15, 0.70, 1.0)
 		light.light_energy = 2.4
 
 	token.add_child(sprite)
@@ -505,90 +454,124 @@ func _create_collectible(type: int) -> Area3D:
 	return token
 
 
-func _create_obstacle(type: ObstacleType) -> Node3D:
-	var obstacle_root: StaticBody3D = StaticBody3D.new()
-	obstacle_root.add_to_group("obstacles")
+func _create_obstacle(category: ObstacleCategory) -> Node3D:
+	match category:
+		ObstacleCategory.BULL_CART:
+			# Dynamic Moving Bull Cart (Normal People Faction Obstacle)
+			var root: Node3D = Node3D.new()
+			root.name = "Obstacle_BullCart"
+			root.set_script(MovingObstacleScript)
+			root.set("speed", 2.2) # Trundles along lane
+			root.set("move_direction", Vector3(0, 0, 1.0)) # Moves down lane
 
-	match type:
-		ObstacleType.LOW_HURDLE:
-			obstacle_root.name = "Obstacle_LowHurdle"
+			var body: StaticBody3D = StaticBody3D.new()
+			body.name = "CartBody"
+			body.add_to_group("obstacles")
+
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 0.65, 0.25)
+			box.size = Vector3(2.2, 1.6, 3.2)
 			col.shape = box
-			col.position = Vector3(0.0, 0.325, 0.0)
-			obstacle_root.add_child(col)
+			col.position = Vector3(0.0, 0.8, 1.0)
+			body.add_child(col)
 
-			var bar_mesh: MeshInstance3D = MeshInstance3D.new()
-			var bar: BoxMesh = BoxMesh.new()
-			bar.size = Vector3(2.2, 0.25, 0.2)
-			bar.material = hurdle_material
-			bar_mesh.mesh = bar
-			bar_mesh.position = Vector3(0.0, 0.5, 0.0)
-			obstacle_root.add_child(bar_mesh)
+			var visual = BULL_CART_SCN.instantiate()
+			body.add_child(visual)
 
-			for side in [-1.0, 1.0]:
-				var stand_mesh: MeshInstance3D = MeshInstance3D.new()
-				var stand: BoxMesh = BoxMesh.new()
-				stand.size = Vector3(0.12, 0.65, 0.3)
-				stand.material = curb_material
-				stand_mesh.mesh = stand
-				stand_mesh.position = Vector3(side * 1.0, 0.325, 0.0)
-				obstacle_root.add_child(stand_mesh)
+			root.add_child(body)
+			return root
 
-		ObstacleType.HIGH_ARCH:
-			obstacle_root.name = "Obstacle_HighArch"
+		ObstacleCategory.POLICE_DOG:
+			# Patrolling Police K9 Dog (Police Faction Hazard)
+			var root: Node3D = Node3D.new()
+			root.name = "Obstacle_PoliceDog"
+			root.set_script(MovingObstacleScript)
+			root.set("speed", 1.2)
+			root.set("move_direction", Vector3(0, 0, 0.5))
+			root.set("bob_amplitude", 0.05)
+			root.set("bob_frequency", 6.0)
+
+			var body: StaticBody3D = StaticBody3D.new()
+			body.name = "DogBody"
+			body.add_to_group("obstacles")
+
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 1.0, 0.35)
+			box.size = Vector3(1.2, 1.1, 1.6)
 			col.shape = box
-			col.position = Vector3(0.0, 1.7, 0.0)
-			obstacle_root.add_child(col)
+			col.position = Vector3(0.0, 0.55, 0.0)
+			body.add_child(col)
 
-			var bar_mesh: MeshInstance3D = MeshInstance3D.new()
-			var bar: BoxMesh = BoxMesh.new()
-			bar.size = Vector3(2.3, 0.6, 0.35)
-			bar.material = arch_material
-			bar_mesh.mesh = bar
-			bar_mesh.position = Vector3(0.0, 1.8, 0.0)
-			obstacle_root.add_child(bar_mesh)
+			var visual = POLICE_DOG_SCN.instantiate()
+			body.add_child(visual)
 
-			var stripe_mesh: MeshInstance3D = MeshInstance3D.new()
-			var stripe: BoxMesh = BoxMesh.new()
-			stripe.size = Vector3(2.0, 0.15, 0.37)
-			stripe.material = lane_marker_material
-			stripe_mesh.mesh = stripe
-			stripe_mesh.position = Vector3(0.0, 1.55, 0.0)
-			obstacle_root.add_child(stripe_mesh)
+			root.add_child(body)
+			return root
 
-			for side in [-1.0, 1.0]:
-				var pillar_mesh: MeshInstance3D = MeshInstance3D.new()
-				var pillar: BoxMesh = BoxMesh.new()
-				pillar.size = Vector3(0.15, 2.2, 0.3)
-				pillar.material = curb_material
-				pillar_mesh.mesh = pillar
-				pillar_mesh.position = Vector3(side * 1.15, 1.1, 0.0)
-				obstacle_root.add_child(pillar_mesh)
+		ObstacleCategory.POLICE_BARRICADE:
+			# Blue Steel Police Barricade with Riot Officers
+			var body: StaticBody3D = StaticBody3D.new()
+			body.name = "Obstacle_PoliceBarricade"
+			body.add_to_group("obstacles")
 
-		ObstacleType.SOLID_BLOCK:
-			obstacle_root.name = "Obstacle_SolidBlock"
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 2.4, 0.6)
+			box.size = Vector3(2.6, 1.8, 0.8)
 			col.shape = box
-			col.position = Vector3(0.0, 1.2, 0.0)
-			obstacle_root.add_child(col)
+			col.position = Vector3(0.0, 0.9, 0.0)
+			body.add_child(col)
 
-			# AAA Roman Fortified Barricade Sprite with 3D shadow casting
-			var barricade_sprite: Sprite3D = Sprite3D.new()
-			barricade_sprite.name = "BarricadeSprite3D"
-			barricade_sprite.texture = BARRICADE_TEX
-			barricade_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
-			barricade_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-			barricade_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			barricade_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
-			barricade_sprite.pixel_size = 2.4 / 1024.0
-			barricade_sprite.position = Vector3(0.0, 1.2, 0.0)
-			obstacle_root.add_child(barricade_sprite)
+			var visual = POLICE_BARRICADE_SCN.instantiate()
+			body.add_child(visual)
+			return body
 
-	return obstacle_root
+		ObstacleCategory.WOODEN_ROADBLOCK:
+			# Heavy Timber Roadblock with NO ENTRY plaque
+			var body: StaticBody3D = StaticBody3D.new()
+			body.name = "Obstacle_WoodenRoadblock"
+			body.add_to_group("obstacles")
+
+			var col: CollisionShape3D = CollisionShape3D.new()
+			var box: BoxShape3D = BoxShape3D.new()
+			box.size = Vector3(2.5, 1.3, 0.8)
+			col.shape = box
+			col.position = Vector3(0.0, 0.65, 0.0)
+			body.add_child(col)
+
+			var visual = WOODEN_ROADBLOCK_SCN.instantiate()
+			body.add_child(visual)
+			return body
+
+		ObstacleCategory.JUMP_RAMP:
+			# Interactive Launch Ramp
+			var body: StaticBody3D = StaticBody3D.new()
+			body.name = "Obstacle_JumpRamp"
+
+			var ramp_area: Area3D = Area3D.new()
+			ramp_area.name = "RampTrigger"
+			ramp_area.set_script(JumpRampScript)
+			ramp_area.set("launch_velocity", 13.5)
+
+			var col: CollisionShape3D = CollisionShape3D.new()
+			var box: BoxShape3D = BoxShape3D.new()
+			box.size = Vector3(2.2, 0.8, 2.5)
+			col.shape = box
+			col.position = Vector3(0.0, 0.4, 0.0)
+			ramp_area.add_child(col)
+
+			var visual = JUMP_RAMP_SCN.instantiate()
+			body.add_child(visual)
+			body.add_child(ramp_area)
+			return body
+
+	# Default fallback
+	var fallback: StaticBody3D = StaticBody3D.new()
+	fallback.name = "Obstacle_SolidBlock"
+	fallback.add_to_group("obstacles")
+	var fcol: CollisionShape3D = CollisionShape3D.new()
+	var fbox: BoxShape3D = BoxShape3D.new()
+	fbox.size = Vector3(2.2, 1.5, 0.5)
+	fcol.shape = fbox
+	fcol.position = Vector3(0.0, 0.75, 0.0)
+	fallback.add_child(fcol)
+	return fallback
