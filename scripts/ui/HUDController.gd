@@ -66,6 +66,9 @@ var current_boss_name: String = ""
 
 
 func _ready() -> void:
+	# Ensure HUD panels do not block touch/swipe gestures, while keeping buttons responsive
+	_configure_mouse_filters(self)
+
 	if banner_panel:
 		banner_panel.visible = false
 		banner_panel.modulate.a = 0.0
@@ -441,3 +444,14 @@ func _format_number_with_commas(n: int) -> String:
 		if count % 3 == 0 and i > 0:
 			result = "," + result
 	return result
+
+
+func _configure_mouse_filters(node: Node) -> void:
+	if node is BaseButton:
+		node.mouse_filter = Control.MOUSE_FILTER_STOP
+	elif node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	for child in node.get_children():
+		_configure_mouse_filters(child)
+

@@ -15,6 +15,7 @@ extends Control
 
 
 func _ready() -> void:
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 	start_run_button.pressed.connect(_on_start_run_pressed)
 	choose_ruler_button.pressed.connect(_on_choose_ruler_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)

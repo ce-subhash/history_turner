@@ -73,7 +73,7 @@ const GRAVITY_MULTIPLIER: float = 26.0
 const SLIDE_DURATION: float = 0.8
 const DEFAULT_HEIGHT: float = 1.8
 const SLIDE_HEIGHT_RATIO: float = 0.5
-const SWIPE_THRESHOLD: float = 40.0
+const SWIPE_THRESHOLD: float = 30.0
 
 # Magnetism constants
 const MAGNET_RADIUS: float = 14.0
@@ -230,7 +230,7 @@ func _setup_ability_visuals() -> void:
 	add_child(shield_mesh)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if GameManager.is_game_over:
 		return
 
@@ -259,13 +259,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			touch_start_pos = event.position
 			is_touch_active = true
 		else:
+			if is_touch_active:
+				var swipe_vec: Vector2 = event.position - touch_start_pos
+				if swipe_vec.length() >= SWIPE_THRESHOLD:
+					_process_swipe(swipe_vec)
 			is_touch_active = false
 
 	elif event is InputEventScreenDrag and is_touch_active:
 		var swipe_vec: Vector2 = event.position - touch_start_pos
 		if swipe_vec.length() >= SWIPE_THRESHOLD:
 			_process_swipe(swipe_vec)
-			is_touch_active = false
+			touch_start_pos = event.position
 
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -279,12 +283,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				touch_start_pos = event.position
 				is_touch_active = true
 			else:
+				if is_touch_active:
+					var swipe_vec: Vector2 = event.position - touch_start_pos
+					if swipe_vec.length() >= SWIPE_THRESHOLD:
+						_process_swipe(swipe_vec)
 				is_touch_active = false
 	elif event is InputEventMouseMotion and is_touch_active:
 		var swipe_vec: Vector2 = event.position - touch_start_pos
 		if swipe_vec.length() >= SWIPE_THRESHOLD:
 			_process_swipe(swipe_vec)
-			is_touch_active = false
+			touch_start_pos = event.position
 
 
 func _process_swipe(swipe_vec: Vector2) -> void:

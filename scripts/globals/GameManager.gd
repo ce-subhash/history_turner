@@ -45,6 +45,7 @@ var can_trigger_divine_fever: bool = true
 
 
 func _ready() -> void:
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 	reset_state()
 
 
