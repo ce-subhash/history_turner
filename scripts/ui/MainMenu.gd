@@ -1,29 +1,25 @@
 ## MainMenu.gd
-## Main Menu screen for "Timetracks: Rulers & Rebels".
-## Provides entry to Character Selection, Direct Run, and Timeline Codex.
-## Includes live ruler showcase card and audio integration.
+## Mobile Portrait Main Menu screen for "Timetracks: Rulers & Rebels".
+## Provides entry to Start Running, Choose Ruler, and Exit.
 extends Control
 
-@onready var quick_run_button: Button = $MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons/QuickRunButton
-@onready var start_button: Button = $MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons/StartButton
-@onready var codex_button: Button = $MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons/CodexButton
-@onready var quit_button: Button = $MainLayout/LeftMenuColumn/MenuPanel/Margin/Buttons/QuitButton
+@onready var start_run_button: Button = $MainMargin/VBox/Buttons/StartRunButton
+@onready var choose_ruler_button: Button = $MainMargin/VBox/Buttons/ChooseRulerButton
+@onready var quit_button: Button = $MainMargin/VBox/Buttons/QuitButton
 
-@onready var active_ruler_label: Label = $MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/ActiveRulerLabel
-@onready var era_label: Label = $MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/EraLabel
-@onready var ability_label: Label = $MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/AbilityLabel
-@onready var passive_label: Label = $MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/PassiveLabel
-@onready var relics_label: Label = $MainLayout/RightShowcaseColumn/ShowcasePanel/Margin/Content/RelicsLabel
+@onready var active_ruler_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/ActiveRulerLabel
+@onready var era_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/EraLabel
+@onready var ability_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/AbilityLabel
+@onready var passive_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/PassiveLabel
+@onready var relics_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/RelicsLabel
 
 
 func _ready() -> void:
-	quick_run_button.pressed.connect(_on_quick_run_pressed)
-	start_button.pressed.connect(_on_start_pressed)
-	codex_button.pressed.connect(_on_codex_pressed)
+	start_run_button.pressed.connect(_on_start_run_pressed)
+	choose_ruler_button.pressed.connect(_on_choose_ruler_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 
-	# Audio feedback on button hovers
-	for btn in [quick_run_button, start_button, codex_button, quit_button]:
+	for btn in [start_run_button, choose_ruler_button, quit_button]:
 		btn.mouse_entered.connect(_on_button_hovered)
 
 	_update_loadout_preview()
@@ -42,7 +38,7 @@ func _update_loadout_preview() -> void:
 		era_label.text = "🏛️ %s" % char_res.get("era_name")
 		ability_label.text = "Active: %s" % char_res.get("active_ability_name")
 
-		var perk_desc = "Standard"
+		var perk_desc = "Standard Leadership"
 		match char_res.get("passive_perk_type"):
 			"pax_romana":
 				perk_desc = "Pax Romana: -15% Govt Decay"
@@ -62,25 +58,19 @@ func _update_loadout_preview() -> void:
 		if relic_names.size() > 0:
 			relics_label.text = " | ".join(relic_names)
 		else:
-			relics_label.text = "None Equipped (Visit Codex)"
+			relics_label.text = "None Equipped"
 
 
-func _on_quick_run_pressed() -> void:
+func _on_start_run_pressed() -> void:
 	if has_node("/root/AudioManager"):
 		get_node("/root/AudioManager").play_sfx_gate()
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 
-func _on_start_pressed() -> void:
+func _on_choose_ruler_pressed() -> void:
 	if has_node("/root/AudioManager"):
 		get_node("/root/AudioManager").play_sfx_collect_crown()
 	get_tree().change_scene_to_file("res://scenes/ui/CharacterSelectScreen.tscn")
-
-
-func _on_codex_pressed() -> void:
-	if has_node("/root/AudioManager"):
-		get_node("/root/AudioManager").play_sfx_collect_crown()
-	get_tree().change_scene_to_file("res://scenes/ui/TimelineCodexScreen.tscn")
 
 
 func _on_quit_pressed() -> void:

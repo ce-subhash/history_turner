@@ -4,11 +4,13 @@
 extends Control
 
 # Starter Characters
+const CHIBI_RES = preload("res://resources/characters/chibi_leader.tres")
 const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
 
 # Pure Rear-View 2.5D Character Sprites
+const CHIBI_SPRITE = preload("res://assets/sprites/characters/chibi_rear_run1.png")
 const CAESAR_SPRITE = preload("res://assets/sprites/characters/caesar_rear_run1.png")
 const JOAN_SPRITE = preload("res://assets/sprites/characters/joan_rear_run1.png")
 const HARRIET_SPRITE = preload("res://assets/sprites/characters/harriet_rear_run1.png")
@@ -35,6 +37,7 @@ var preview_time: float = 0.0
 @onready var relic_limit_label: Label = $MainLayout/RelicsPanel/Margin/VBox/RelicLimitLabel
 
 # Character Buttons
+@onready var chibi_btn: Button = get_node_or_null("MainLayout/RosterPanel/Margin/VBox/Grid/ChibiBtn")
 @onready var caesar_btn: Button = $MainLayout/RosterPanel/Margin/VBox/Grid/CaesarBtn
 @onready var joan_btn: Button = $MainLayout/RosterPanel/Margin/VBox/Grid/JoanBtn
 @onready var harriet_btn: Button = $MainLayout/RosterPanel/Margin/VBox/Grid/HarrietBtn
@@ -51,6 +54,8 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 
 	# Wire character selectors
+	if chibi_btn:
+		chibi_btn.pressed.connect(func(): _select_starter_character(CHIBI_RES))
 	caesar_btn.pressed.connect(func(): _select_starter_character(CAESAR_RES))
 	joan_btn.pressed.connect(func(): _select_starter_character(JOAN_RES))
 	harriet_btn.pressed.connect(func(): _select_starter_character(HARRIET_RES))
@@ -206,6 +211,10 @@ func _update_3d_preview(char_name: String) -> void:
 	var light_energy: float = 2.4
 
 	match char_name:
+		"Chibi Leader":
+			sprite_tex = CHIBI_SPRITE
+			light_col = Color(1.0, 0.5, 0.2)
+			light_energy = 2.4
 		"Julius Caesar":
 			sprite_tex = CAESAR_SPRITE
 			light_col = Color(1.0, 0.85, 0.4)
@@ -219,7 +228,7 @@ func _update_3d_preview(char_name: String) -> void:
 			light_col = Color(1.0, 0.78, 0.35)
 			light_energy = 3.6
 		_:
-			sprite_tex = CAESAR_SPRITE
+			sprite_tex = CHIBI_SPRITE
 
 	if sprite_tex:
 		preview_sprite = Sprite3D.new()

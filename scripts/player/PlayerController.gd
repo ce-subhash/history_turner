@@ -19,7 +19,8 @@ const CHARACTER_SPRITES = {
 		"light_color": Color(1.0, 0.95, 0.88),
 		"light_energy": 2.2,
 		"light_range": 10.0,
-		"light_offset": Vector3(0.0, 1.2, 0.1)
+		"light_offset": Vector3(0.0, 1.2, 0.1),
+		"base_y": 0.80
 	},
 	"Julius Caesar": {
 		"run1": preload("res://assets/sprites/characters/caesar_rear_run1.png"),
@@ -30,7 +31,8 @@ const CHARACTER_SPRITES = {
 		"light_color": Color(1.0, 0.85, 0.4),
 		"light_energy": 2.2,
 		"light_range": 10.0,
-		"light_offset": Vector3(0.0, 1.2, 0.1)
+		"light_offset": Vector3(0.0, 1.2, 0.1),
+		"base_y": 0.84
 	},
 	"Joan of Arc": {
 		"run1": preload("res://assets/sprites/characters/joan_rear_run1.png"),
@@ -41,7 +43,8 @@ const CHARACTER_SPRITES = {
 		"light_color": Color(0.75, 0.9, 1.0),
 		"light_energy": 2.8,
 		"light_range": 11.0,
-		"light_offset": Vector3(0.0, 1.7, 0.0)
+		"light_offset": Vector3(0.0, 1.7, 0.0),
+		"base_y": 0.84
 	},
 	"Harriet Tubman": {
 		"run1": preload("res://assets/sprites/characters/harriet_rear_run1.png"),
@@ -52,7 +55,8 @@ const CHARACTER_SPRITES = {
 		"light_color": Color(1.0, 0.78, 0.35),
 		"light_energy": 3.8,
 		"light_range": 16.0,
-		"light_offset": Vector3(0.35, 0.85, -0.2)
+		"light_offset": Vector3(0.35, 0.85, -0.2),
+		"base_y": 0.84
 	}
 }
 
@@ -166,6 +170,7 @@ func _init_collision_cache() -> void:
 	else:
 		original_shape_height = DEFAULT_HEIGHT
 		original_shape_y = DEFAULT_HEIGHT * 0.5
+	_set_collision_height(original_shape_height)
 
 
 func _setup_camera() -> void:
@@ -322,7 +327,7 @@ func switch_lane(direction: int) -> void:
 func jump() -> void:
 	if is_peasant_fever:
 		return
-	if is_on_floor():
+	if is_on_floor() or position.y < 0.15:
 		if is_sliding:
 			_end_slide()
 		velocity.y = JUMP_VELOCITY
@@ -382,7 +387,7 @@ func _set_collision_height(new_height: float) -> void:
 		box.size.y = new_height
 
 	collision_shape.position.y = new_height * 0.5
-	if abs(position.x) <= 5.5 and position.y < 0.0:
+	if abs(position.x) <= 5.5 and position.y < -0.10:
 		position.y = 0.0
 
 
@@ -428,7 +433,7 @@ func _physics_process(delta: float) -> void:
 
 	# Guaranteed road surface clamp: Player can NEVER sink below road while on track lanes
 	if abs(position.x) <= 5.5:
-		if position.y < 0.0:
+		if position.y < -0.12:
 			position.y = 0.0
 			if velocity.y < 0.0:
 				velocity.y = 0.0
@@ -689,7 +694,8 @@ func _apply_character_visuals(character: Resource) -> void:
 	# Match sprite height exactly to 1.8m collision capsule
 	var tex_h: float = float(run1_texture.get_height()) if run1_texture else 1024.0
 	character_sprite.pixel_size = DEFAULT_HEIGHT / tex_h
-	character_sprite.position = Vector3(0.0, 0.9, 0.0)
+	var base_y: float = char_data.get("base_y", 0.84)
+	character_sprite.position = Vector3(0.0, base_y, 0.0)
 	character_sprite.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
 	character_sprite.modulate = char_data["modulate"]
 	visual_model.add_child(character_sprite)
@@ -731,6 +737,7 @@ func _update_procedural_animations(delta: float) -> void:
 		return
 
 	var char_data = CHARACTER_SPRITES[active_character_name]
+	var base_y: float = char_data.get("base_y", 0.84)
 
 	# Banking recovery
 	banking_tilt = lerpf(banking_tilt, 0.0, 8.0 * delta)
@@ -746,7 +753,7 @@ func _update_procedural_animations(delta: float) -> void:
 		var flight_tex_h: float = float(char_data["jump"].get_height())
 		character_sprite.pixel_size = DEFAULT_HEIGHT / flight_tex_h
 		run_anim_time += delta * 4.0
-		character_sprite.position.y = 0.9 + sin(run_anim_time) * 0.08
+		character_sprite.position.y = base_y + sin(run_anim_time) * 0.08
 		character_sprite.rotation_degrees.x = -15.0
 		return
 
@@ -755,17 +762,18 @@ func _update_procedural_animations(delta: float) -> void:
 		character_sprite.texture = char_data["slide"]
 		var slide_tex_h: float = float(char_data["slide"].get_height())
 		character_sprite.pixel_size = DEFAULT_HEIGHT / slide_tex_h
-		character_sprite.position.y = 0.45
+		character_sprite.position.y = 0.42
 		character_sprite.position.x = 0.0
 		character_sprite.rotation_degrees.x = -4.0
 		return
 
-	# State 3: Airborne Jump Leap
-	if not is_on_floor() or velocity.y > 0.1:
+	# State 3: Airborne Jump Leap (Only when genuinely in the air or launching)
+	var is_airborne: bool = (not is_on_floor() and position.y > 0.18) or velocity.y > 1.2
+	if is_airborne:
 		character_sprite.texture = char_data["jump"]
 		var jump_tex_h: float = float(char_data["jump"].get_height())
 		character_sprite.pixel_size = DEFAULT_HEIGHT / jump_tex_h
-		character_sprite.position.y = 0.95
+		character_sprite.position.y = base_y + 0.10
 		character_sprite.position.x = 0.0
 		character_sprite.rotation_degrees.x = -12.0
 		return
@@ -784,7 +792,7 @@ func _update_procedural_animations(delta: float) -> void:
 
 	# Subtle athletic running bounce & hip sway
 	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.05
-	character_sprite.position.y = 0.9 + vertical_bounce
+	character_sprite.position.y = base_y + vertical_bounce
 	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.03
 	character_sprite.rotation_degrees.x = -8.0
 
@@ -812,7 +820,7 @@ func _update_dynamic_camera(delta: float) -> void:
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
 	# 2. Footstep micro-bobbing synchronized with running stride around elevated base y=3.8
-	if is_on_floor() and not is_sliding and not GameManager.is_game_over:
+	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
 		camera.position.y = 3.8 + sin(run_anim_time * 2.0) * 0.025
 	else:
 		camera.position.y = lerpf(camera.position.y, 3.8, 6.0 * delta)
@@ -822,4 +830,4 @@ func _update_dynamic_camera(delta: float) -> void:
 
 	# 4. Dust particles emission
 	if dust_particles:
-		dust_particles.emitting = is_on_floor() and not is_peasant_fever and not GameManager.is_game_over
+		dust_particles.emitting = (is_on_floor() or position.y < 0.15) and not is_peasant_fever and not GameManager.is_game_over

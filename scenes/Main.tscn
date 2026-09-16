@@ -42,7 +42,7 @@ volumetric_fog_albedo = Color(0.95, 0.78, 0.55, 1)
 volumetric_fog_emission = Color(0.15, 0.08, 0.04, 1)
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
-radius = 0.45
+radius = 0.32
 height = 1.8
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_runner_body"]

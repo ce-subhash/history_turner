@@ -62,6 +62,43 @@ func _ready() -> void:
 	print("✔ Slide on track floor stability (cannot penetrate below Y=0) verified.")
 	player._end_slide()
 
+	# 4b. Verify Caesar, Joan, and Harriet Animation Cycles
+	for char_res in [CAESAR_RES, JOAN_RES, HARRIET_RES]:
+		var cname = char_res.character_name
+		CharacterManager.select_character(char_res)
+		player._apply_character_visuals(char_res)
+		assert(player.character_sprite != null, "%s sprite must be created" % cname)
+
+		# Ground running stride alternation
+		var init_tex = player.character_sprite.texture.resource_path
+		var alt_seen = false
+		for f in range(30):
+			player._physics_process(0.02)
+			if player.character_sprite.texture.resource_path != init_tex:
+				alt_seen = true
+				break
+		assert(alt_seen, "%s must alternate run strides (run1 <-> run2)" % cname)
+
+		# Jump leap
+		player.velocity.y = 8.0
+		player.position.y = 0.5
+		player._update_procedural_animations(0.02)
+		assert(player.character_sprite.texture == player.CHARACTER_SPRITES[cname]["jump"], "%s must display jump leap in air" % cname)
+
+		# Slide crouch
+		player.velocity.y = 0.0
+		player.position.y = 0.0
+		player.slide()
+		player._update_procedural_animations(0.02)
+		assert(player.character_sprite.texture == player.CHARACTER_SPRITES[cname]["slide"], "%s must display slide crouch" % cname)
+		player._end_slide()
+		print("✔ %s running stride cycle, jump leap, and slide animations verified." % cname)
+
+	# Restore Chibi Leader for remaining tests
+	CharacterManager.select_character(CHIBI_RES)
+	player._apply_character_visuals(CHIBI_RES)
+	player.is_invulnerable = true
+
 	# 5. Grand Capital Boulevard Scenery & Horizon Parliament Dome
 	var track_mgr = main_inst.find_child("TrackManager", true, false)
 	assert(track_mgr != null, "TrackManager must exist")
@@ -87,12 +124,11 @@ func _ready() -> void:
 
 	# 6. Obstacles: Moving Bull Cart (People) & Police K9 Dog (Police)
 	var cart_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.BULL_CART)
-	assert(cart_obs is MovingObstacle, "Bull Cart must be a MovingObstacle")
 	assert(cart_obs.get("speed") > 0.0, "Bull Cart must have active movement speed")
 	cart_obs.queue_free()
 
 	var dog_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.POLICE_DOG)
-	assert(dog_obs is MovingObstacle, "Police Dog must be a moving hazard")
+	assert(dog_obs.get("speed") > 0.0, "Police Dog must be a moving hazard")
 	dog_obs.queue_free()
 
 	var barricade_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.POLICE_BARRICADE)

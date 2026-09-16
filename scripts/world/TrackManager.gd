@@ -470,9 +470,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.2, 1.6, 3.2)
+			box.size = Vector3(1.7, 1.3, 2.2)
 			col.shape = box
-			col.position = Vector3(0.0, 0.8, 1.0)
+			col.position = Vector3(0.0, 0.7, 0.6)
 			body.add_child(col)
 
 			var visual = BULL_CART_SCN.instantiate()
@@ -497,9 +497,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.2, 1.1, 1.6)
+			box.size = Vector3(0.8, 0.8, 1.0)
 			col.shape = box
-			col.position = Vector3(0.0, 0.55, 0.0)
+			col.position = Vector3(0.0, 0.45, 0.0)
 			body.add_child(col)
 
 			var visual = POLICE_DOG_SCN.instantiate()
@@ -516,9 +516,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.6, 1.8, 0.8)
+			box.size = Vector3(1.8, 1.4, 0.4)
 			col.shape = box
-			col.position = Vector3(0.0, 0.9, 0.0)
+			col.position = Vector3(0.0, 0.7, 0.0)
 			body.add_child(col)
 
 			var visual = POLICE_BARRICADE_SCN.instantiate()
@@ -533,9 +533,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.5, 1.3, 0.8)
+			box.size = Vector3(1.8, 1.1, 0.4)
 			col.shape = box
-			col.position = Vector3(0.0, 0.65, 0.0)
+			col.position = Vector3(0.0, 0.55, 0.0)
 			body.add_child(col)
 
 			var visual = WOODEN_ROADBLOCK_SCN.instantiate()
@@ -572,8 +572,8 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 	fallback.add_to_group("obstacles")
 	var fcol: CollisionShape3D = CollisionShape3D.new()
 	var fbox: BoxShape3D = BoxShape3D.new()
-	fbox.size = Vector3(2.2, 1.5, 0.5)
+	fbox.size = Vector3(1.6, 1.2, 0.4)
 	fcol.shape = fbox
-	fcol.position = Vector3(0.0, 0.75, 0.0)
+	fcol.position = Vector3(0.0, 0.6, 0.0)
 	fallback.add_child(fcol)
 	return fallback

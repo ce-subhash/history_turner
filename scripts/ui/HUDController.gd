@@ -163,16 +163,16 @@ func _process(delta: float) -> void:
 			else:
 				boss_countdown_label.text = "VICTORY!"
 
-		# Pulse warning alert on critical political meters
+		# Pulse warning alert on critical low political meters (<= 15.0)
 		if people_label:
-			if GameManager.people_power <= 20.0 or GameManager.people_power >= 80.0:
+			if GameManager.people_power <= 15.0:
 				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
 				people_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
 			else:
 				people_label.modulate = Color.WHITE
 
 		if govt_label:
-			if GameManager.govt_power <= 20.0 or GameManager.govt_power >= 80.0:
+			if GameManager.govt_power <= 15.0:
 				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
 				govt_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
 			else:

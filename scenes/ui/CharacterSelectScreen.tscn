@@ -88,7 +88,7 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 
-[node name="MainLayout" type="HBoxContainer" parent="."]
+[node name="MainLayout" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -99,7 +99,7 @@ offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 14
 
 [node name="RosterPanel" type="PanelContainer" parent="MainLayout"]
 layout_mode = 2
@@ -130,6 +130,14 @@ size_flags_vertical = 3
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 columns = 2
+
+[node name="ChibiBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+text = "Chibi Leader
+(Republic)"
 
 [node name="CaesarBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
 layout_mode = 2

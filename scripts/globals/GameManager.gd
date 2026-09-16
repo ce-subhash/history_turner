@@ -86,12 +86,12 @@ func _evaluate_political_stability() -> void:
 	if is_game_over:
 		return
 
-	if people_power <= 0.0 or people_power >= 100.0:
-		trigger_game_over("Overthrown by Popular Revolt!")
+	if people_power <= 0.0:
+		trigger_game_over("Overthrown by Popular Revolt! (People Support reached 0%)")
 		return
 
-	if govt_power <= 0.0 or govt_power >= 100.0:
-		trigger_game_over("Deposed by Royal Coup!")
+	if govt_power <= 0.0:
+		trigger_game_over("Deposed by Royal Coup! (Govt Support reached 0%)")
 		return
 
 
@@ -107,11 +107,11 @@ func _evaluate_fever_thresholds() -> void:
 		can_trigger_divine_fever = true
 
 	# 1. Peasant Revolution: People Power >= 90%
-	if people_power >= FEVER_THRESHOLD and people_power < 100.0 and can_trigger_peasant_fever:
+	if people_power >= FEVER_THRESHOLD and can_trigger_peasant_fever:
 		_start_fever_state("peasant_revolution")
 
 	# 2. Divine Right: Govt Power >= 90%
-	elif govt_power >= FEVER_THRESHOLD and govt_power < 100.0 and can_trigger_divine_fever:
+	elif govt_power >= FEVER_THRESHOLD and can_trigger_divine_fever:
 		_start_fever_state("divine_right")
 
 
@@ -137,6 +137,11 @@ func _end_fever_state() -> void:
 	is_fever_active = false
 	current_fever_type = ""
 	fever_timer = 0.0
+	if ended_type == "peasant_revolution":
+		people_power = 70.0
+	elif ended_type == "divine_right":
+		govt_power = 70.0
+	power_changed.emit(people_power, govt_power)
 	print("[GameManager] Fever state ended: %s" % ended_type)
 	fever_state_ended.emit(ended_type)
 
