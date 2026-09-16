@@ -454,4 +454,3 @@ func _configure_mouse_filters(node: Node) -> void:
 
 	for child in node.get_children():
 		_configure_mouse_filters(child)
-

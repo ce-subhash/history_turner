@@ -694,8 +694,8 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_sprite.texture = run1_texture
 	character_sprite.centered = true
 	character_sprite.offset = Vector2.ZERO
-	character_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
-	character_sprite.alpha_scissor_threshold = 0.5
+	character_sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+	character_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	character_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	character_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 
@@ -769,10 +769,10 @@ func _update_procedural_animations(delta: float) -> void:
 	if is_sliding:
 		character_sprite.texture = char_data["slide"]
 		var slide_tex_h: float = float(char_data["slide"].get_height())
-		character_sprite.pixel_size = DEFAULT_HEIGHT / slide_tex_h
-		character_sprite.position.y = 0.42
+		character_sprite.pixel_size = 0.98 / slide_tex_h
+		character_sprite.position.y = 0.48
 		character_sprite.position.x = 0.0
-		character_sprite.rotation_degrees.x = -4.0
+		character_sprite.rotation_degrees.x = -16.0
 		return
 
 	# State 3: Airborne Jump Leap (Only when genuinely in the air or launching)
