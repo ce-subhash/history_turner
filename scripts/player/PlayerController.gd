@@ -769,8 +769,8 @@ func _update_procedural_animations(delta: float) -> void:
 	if is_sliding:
 		character_sprite.texture = char_data["slide"]
 		var slide_tex_h: float = float(char_data["slide"].get_height())
-		character_sprite.pixel_size = 0.98 / slide_tex_h
-		character_sprite.position.y = 0.48
+		character_sprite.pixel_size = 1.28 / slide_tex_h
+		character_sprite.position.y = 0.61
 		character_sprite.position.x = 0.0
 		character_sprite.rotation_degrees.x = -16.0
 		return

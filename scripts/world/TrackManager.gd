@@ -29,9 +29,11 @@ const LAMPPOST_SCN = preload("res://assets/sprites/props/street_lamppost.glb")
 const CROWD_SIDEWALK_SCN = preload("res://assets/sprites/props/crowd_sidewalk.glb")
 const PARLIAMENT_DOME_SCN = preload("res://assets/sprites/props/parliament_dome.glb")
 
-# 2D Tokens
+# 2D Tokens & Stylized Props
 const TOKEN_HEART_TEX = preload("res://assets/sprites/props/token_heart.png")
 const TOKEN_TEMPLE_TEX = preload("res://assets/sprites/props/token_temple.png")
+const POLICE_BARRICADE_TEX = preload("res://assets/sprites/props/police_barricade.png")
+const JUMP_RAMP_TEX = preload("res://assets/sprites/props/jump_ramp.png")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
@@ -432,9 +434,10 @@ func _create_collectible(type: int) -> Area3D:
 	var sprite: Sprite3D = Sprite3D.new()
 	sprite.name = "CollectibleSprite"
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISCARD
+	sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	sprite.pixel_size = 0.85 / 512.0
+	sprite.pixel_size = 0.85 / 1024.0
 
 	var light: OmniLight3D = OmniLight3D.new()
 	light.omni_range = 5.0
@@ -509,20 +512,43 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			return root
 
 		ObstacleCategory.POLICE_BARRICADE:
-			# Blue Steel Police Barricade with Riot Officers
+			# High-Res 3D-Stylized Police Road Barricade with flashing sirens
 			var body: StaticBody3D = StaticBody3D.new()
 			body.name = "Obstacle_PoliceBarricade"
 			body.add_to_group("obstacles")
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.8, 1.4, 0.4)
+			box.size = Vector3(2.0, 1.3, 0.4)
 			col.shape = box
-			col.position = Vector3(0.0, 0.7, 0.0)
+			col.position = Vector3(0.0, 0.65, 0.0)
 			body.add_child(col)
 
-			var visual = POLICE_BARRICADE_SCN.instantiate()
-			body.add_child(visual)
+			var sprite: Sprite3D = Sprite3D.new()
+			sprite.name = "BarricadeSprite"
+			sprite.texture = POLICE_BARRICADE_TEX
+			sprite.centered = true
+			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			sprite.pixel_size = 1.75 / 1024.0
+			sprite.position = Vector3(0.0, 0.88, 0.0)
+			body.add_child(sprite)
+
+			# Red and Blue emergency flashing lights
+			var red_siren: OmniLight3D = OmniLight3D.new()
+			red_siren.light_color = Color(1.0, 0.15, 0.15)
+			red_siren.light_energy = 3.2
+			red_siren.omni_range = 4.5
+			red_siren.position = Vector3(-0.45, 1.45, 0.1)
+			body.add_child(red_siren)
+
+			var blue_siren: OmniLight3D = OmniLight3D.new()
+			blue_siren.light_color = Color(0.15, 0.45, 1.0)
+			blue_siren.light_energy = 3.2
+			blue_siren.omni_range = 4.5
+			blue_siren.position = Vector3(0.45, 1.45, 0.1)
+			body.add_child(blue_siren)
+
 			return body
 
 		ObstacleCategory.WOODEN_ROADBLOCK:
@@ -543,7 +569,7 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			return body
 
 		ObstacleCategory.JUMP_RAMP:
-			# Interactive Speed Launch Ramp (Boosts player speed & launches upward)
+			# High-Res Stylized Speed Launch Boost Ramp
 			var body: Node3D = Node3D.new()
 			body.name = "Speed_JumpRamp"
 
@@ -561,8 +587,25 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			col.position = Vector3(0.0, 0.5, 0.0)
 			ramp_area.add_child(col)
 
-			var visual = JUMP_RAMP_SCN.instantiate()
-			body.add_child(visual)
+			var sprite: Sprite3D = Sprite3D.new()
+			sprite.name = "RampSprite"
+			sprite.texture = JUMP_RAMP_TEX
+			sprite.centered = true
+			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			sprite.pixel_size = 2.2 / 1024.0
+			sprite.position = Vector3(0.0, 0.78, 0.0)
+			sprite.rotation_degrees = Vector3(-12.0, 0.0, 0.0)
+			body.add_child(sprite)
+
+			# Vibrant Cyan/Gold Nitro Boost Underglow
+			var boost_light: OmniLight3D = OmniLight3D.new()
+			boost_light.light_color = Color(1.0, 0.82, 0.25)
+			boost_light.light_energy = 3.5
+			boost_light.omni_range = 5.5
+			boost_light.position = Vector3(0.0, 0.4, 0.0)
+			body.add_child(boost_light)
+
 			body.add_child(ramp_area)
 			return body
 
