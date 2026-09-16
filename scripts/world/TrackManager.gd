@@ -34,6 +34,8 @@ const TOKEN_HEART_TEX = preload("res://assets/sprites/props/token_heart.png")
 const TOKEN_TEMPLE_TEX = preload("res://assets/sprites/props/token_temple.png")
 const POLICE_BARRICADE_TEX = preload("res://assets/sprites/props/police_barricade.png")
 const JUMP_RAMP_TEX = preload("res://assets/sprites/props/jump_ramp.png")
+const BULL_CART_TEX = preload("res://assets/sprites/props/bull_cart.png")
+const STONE_BLOCK_TEX = preload("res://assets/sprites/props/stone_block.png")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
@@ -48,7 +50,7 @@ const ERA_PORTAL_INTERVAL: float = 2500.0
 
 enum ObstacleCategory {
 	BULL_CART,        # Moving bull cart (Normal People faction)
-	POLICE_DOG,       # Police K9 dog patrol (Police faction)
+	STONE_BLOCK,      # Classical Carved Stone Monument Block
 	POLICE_BARRICADE, # Riot police barricade with shields (Police faction)
 	WOODEN_ROADBLOCK, # Timber barricade with NO ENTRY plaque
 	JUMP_RAMP         # Blue steel launch ramp
@@ -395,7 +397,7 @@ func _pick_random_obstacle_category() -> ObstacleCategory:
 	if roll < 0.25:
 		return ObstacleCategory.BULL_CART        # Moving Bull Cart (People)
 	elif roll < 0.48:
-		return ObstacleCategory.POLICE_DOG       # Police Dog (Police)
+		return ObstacleCategory.STONE_BLOCK      # Classical Carved Stone Block
 	elif roll < 0.70:
 		return ObstacleCategory.POLICE_BARRICADE # Police Riot Barricade (Police)
 	elif roll < 0.88:
@@ -473,43 +475,52 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.7, 1.3, 2.2)
+			box.size = Vector3(1.8, 1.4, 2.2)
 			col.shape = box
-			col.position = Vector3(0.0, 0.7, 0.6)
+			col.position = Vector3(0.0, 0.7, 0.0)
 			body.add_child(col)
 
-			var visual = BULL_CART_SCN.instantiate()
-			body.add_child(visual)
+			var sprite: Sprite3D = Sprite3D.new()
+			sprite.name = "BullCartSprite"
+			sprite.texture = BULL_CART_TEX
+			sprite.centered = true
+			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			sprite.pixel_size = 2.1 / 1024.0
+			sprite.position = Vector3(0.0, 1.05, 0.0)
+			sprite.rotation_degrees = Vector3.ZERO
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			body.add_child(sprite)
 
 			root.add_child(body)
 			return root
 
-		ObstacleCategory.POLICE_DOG:
-			# Patrolling Police K9 Dog (Police Faction Hazard)
-			var root: Node3D = Node3D.new()
-			root.name = "Obstacle_PoliceDog"
-			root.set_script(MovingObstacleScript)
-			root.set("speed", 1.2)
-			root.set("move_direction", Vector3(0, 0, 0.5))
-			root.set("bob_amplitude", 0.05)
-			root.set("bob_frequency", 6.0)
-
+		ObstacleCategory.STONE_BLOCK:
+			# Heavy Classical Carved Stone Monument Block (Ancient Republic Obstacle)
 			var body: StaticBody3D = StaticBody3D.new()
-			body.name = "DogBody"
+			body.name = "Obstacle_StoneBlock"
 			body.add_to_group("obstacles")
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(0.8, 0.8, 1.0)
+			box.size = Vector3(1.8, 1.3, 0.6)
 			col.shape = box
-			col.position = Vector3(0.0, 0.45, 0.0)
+			col.position = Vector3(0.0, 0.65, 0.0)
 			body.add_child(col)
 
-			var visual = POLICE_DOG_SCN.instantiate()
-			body.add_child(visual)
+			var sprite: Sprite3D = Sprite3D.new()
+			sprite.name = "StoneBlockSprite"
+			sprite.texture = STONE_BLOCK_TEX
+			sprite.centered = true
+			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
+			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			sprite.pixel_size = 1.6 / 1024.0
+			sprite.position = Vector3(0.0, 0.70, 0.0)
+			sprite.rotation_degrees = Vector3.ZERO
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			body.add_child(sprite)
 
-			root.add_child(body)
-			return root
+			return body
 
 		ObstacleCategory.POLICE_BARRICADE:
 			# High-Res 3D-Stylized Police Road Barricade with flashing sirens
@@ -587,18 +598,47 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			col.position = Vector3(0.0, 0.5, 0.0)
 			ramp_area.add_child(col)
 
-			var sprite: Sprite3D = Sprite3D.new()
-			sprite.name = "RampSprite"
-			sprite.texture = JUMP_RAMP_TEX
-			sprite.centered = true
-			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
-			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-			sprite.pixel_size = 2.2 / 1024.0
-			sprite.position = Vector3(0.0, 0.78, 0.0)
-			sprite.rotation_degrees = Vector3(-12.0, 0.0, 0.0)
-			body.add_child(sprite)
+			# 1. Inclined 3D Ramp Surface (Runs smoothly from road level Y=0.06 up to launch lip Y=0.84)
+			var ramp_mesh: MeshInstance3D = MeshInstance3D.new()
+			ramp_mesh.name = "RampSurface"
+			var plane: PlaneMesh = PlaneMesh.new()
+			plane.size = Vector2(2.1, 3.0)
+			ramp_mesh.mesh = plane
 
-			# Vibrant Cyan/Gold Nitro Boost Underglow
+			var mat: StandardMaterial3D = StandardMaterial3D.new()
+			mat.albedo_texture = JUMP_RAMP_TEX
+			mat.emission_enabled = true
+			mat.emission_texture = JUMP_RAMP_TEX
+			mat.emission_energy_multiplier = 1.35
+			mat.roughness = 0.25
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			ramp_mesh.material_override = mat
+
+			ramp_mesh.position = Vector3(0.0, 0.45, 0.0)
+			ramp_mesh.rotation_degrees = Vector3(15.0, 0.0, 0.0)
+			body.add_child(ramp_mesh)
+
+			# 2. Side Gold Guardrails (slope upward along the ramp)
+			for side in [-1.0, 1.0]:
+				var rail: MeshInstance3D = MeshInstance3D.new()
+				var box_mesh: BoxMesh = BoxMesh.new()
+				box_mesh.size = Vector3(0.12, 0.16, 3.0)
+				rail.mesh = box_mesh
+				var r_mat: StandardMaterial3D = StandardMaterial3D.new()
+				r_mat.albedo_color = Color(1.0, 0.82, 0.22)
+				r_mat.metallic = 0.8
+				r_mat.roughness = 0.25
+				r_mat.emission_enabled = true
+				r_mat.emission = Color(1.0, 0.80, 0.20)
+				r_mat.emission_energy_multiplier = 0.6
+				rail.material_override = r_mat
+				rail.position = Vector3(side * 1.02, 0.52, 0.0)
+				rail.rotation_degrees = Vector3(15.0, 0.0, 0.0)
+				body.add_child(rail)
+
+			# 3. Vibrant Cyan/Gold Nitro Boost Underglow
 			var boost_light: OmniLight3D = OmniLight3D.new()
 			boost_light.light_color = Color(1.0, 0.82, 0.25)
 			boost_light.light_energy = 3.5

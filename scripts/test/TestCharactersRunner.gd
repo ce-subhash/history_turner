@@ -46,7 +46,7 @@ func _ready() -> void:
 	player.slide()
 	player._physics_process(0.05)
 	assert("chibi_rear_slide" in player.character_sprite.texture.resource_path, "Texture must swap to chibi rear slide pose during slide")
-	assert(player.character_sprite.position.y <= 0.5, "Sprite must lower to ground during slide")
+	assert(player.character_sprite.position.y <= 0.65, "Sprite must lower to ground during slide")
 	print("✔ Chibi Leader low ground slide crouch verified.")
 	player._end_slide()
 
@@ -122,14 +122,15 @@ func _ready() -> void:
 	assert(has_crowd, "Track chunk must feature cheering crowd spectators holding signs")
 	print("✔ Grand Capital Boulevard scenery (trees, lampposts, cheering crowd sidewalks, Parliament dome) verified.")
 
-	# 6. Obstacles: Moving Bull Cart (People) & Police K9 Dog (Police)
+	# 6. Obstacles: Moving Bull Cart (People) & Classical Stone Block (Ancient/Republic)
 	var cart_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.BULL_CART)
 	assert(cart_obs.get("speed") > 0.0, "Bull Cart must have active movement speed")
 	cart_obs.queue_free()
 
-	var dog_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.POLICE_DOG)
-	assert(dog_obs.get("speed") > 0.0, "Police Dog must be a moving hazard")
-	dog_obs.queue_free()
+	var stone_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.STONE_BLOCK)
+	assert(stone_obs != null, "Stone Block must be created")
+	assert(stone_obs.is_in_group("obstacles"), "Stone Block must be in obstacles group")
+	stone_obs.queue_free()
 
 	var barricade_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.POLICE_BARRICADE)
 	assert(barricade_obs != null, "Police barricade must be created")

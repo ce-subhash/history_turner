@@ -4,14 +4,16 @@
 extends Control
 
 @onready var start_run_button: Button = $MainMargin/VBox/Buttons/StartRunButton
-@onready var choose_ruler_button: Button = $MainMargin/VBox/Buttons/ChooseRulerButton
-@onready var quit_button: Button = $MainMargin/VBox/Buttons/QuitButton
+@onready var choose_ruler_button: Button = $MainMargin/VBox/Buttons/SubRow/ChooseRulerButton
+@onready var quit_button: Button = $MainMargin/VBox/Buttons/SubRow/QuitButton
 
 @onready var active_ruler_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/ActiveRulerLabel
 @onready var era_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/EraLabel
 @onready var ability_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/AbilityLabel
 @onready var passive_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/PassiveLabel
 @onready var relics_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/RelicsLabel
+
+var _pulse_tween: Tween
 
 
 func _ready() -> void:
@@ -24,6 +26,15 @@ func _ready() -> void:
 		btn.mouse_entered.connect(_on_button_hovered)
 
 	_update_loadout_preview()
+	_start_pulse_animation()
+
+
+func _start_pulse_animation() -> void:
+	if _pulse_tween:
+		_pulse_tween.kill()
+	_pulse_tween = create_tween().set_loops()
+	_pulse_tween.tween_property(start_run_button, "scale", Vector2(1.03, 1.03), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_pulse_tween.tween_property(start_run_button, "scale", Vector2(0.98, 0.98), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 func _on_button_hovered() -> void:
