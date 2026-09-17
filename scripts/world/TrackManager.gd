@@ -11,6 +11,7 @@ class_name TrackManager
 
 # --- Preloaded Scripts & 3D Props ---
 const DecisionGateScript = preload("res://scripts/world/DecisionGate.gd")
+const FactionRunwayScript = preload("res://scripts/world/FactionRunway.gd")
 const CollectibleScript = preload("res://scripts/world/Collectible.gd")
 const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
 const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
@@ -250,9 +251,9 @@ func _trigger_boss_encounter() -> void:
 
 func _spawn_decision_gate(chunk: Node3D) -> void:
 	var container: Node3D = chunk.get_node("DynamicElements")
-	var gate: Node3D = DecisionGateScript.new()
-	gate.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
-	container.add_child(gate)
+	var runway: Node3D = FactionRunwayScript.new()
+	runway.position = Vector3(0.0, 0.0, -CHUNK_LENGTH * 0.5)
+	container.add_child(runway)
 
 
 func _recycle_chunk(chunk: Node3D) -> void:

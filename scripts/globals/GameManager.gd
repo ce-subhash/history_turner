@@ -8,6 +8,7 @@ signal game_over(reason: String)
 signal game_restarted()
 signal power_changed(people: float, govt: float)
 signal decision_notification(text: String)
+signal coins_updated(people_coins: int, govt_coins: int)
 
 # Phase 4 Signals
 signal fever_state_started(fever_type: String, duration: float)
@@ -26,15 +27,17 @@ const INITIAL_SPEED: float = 12.0
 const MAX_SPEED: float = 28.0
 const SPEED_ACCELERATION: float = 0.15
 
-# Political Balance Engine State
-var people_power: float = 50.0
-var govt_power: float = 50.0
-const DECAY_RATE: float = 0.5
+# Collectible Coin Counters & Energy State
+var people_coins: int = 0
+var govt_coins: int = 0
+var people_power: float = 0.0
+var govt_power: float = 0.0
+const DECAY_RATE: float = 0.0
 var govt_decay_modifier: float = 1.0
 
 # --- Phase 4: High-Risk Fever States ---
-const FEVER_THRESHOLD: float = 90.0
-const FEVER_RESET_THRESHOLD: float = 80.0
+const FEVER_THRESHOLD: float = 85.0
+const FEVER_RESET_THRESHOLD: float = 75.0
 const FEVER_DURATION: float = 2.5
 
 var is_fever_active: bool = false
@@ -68,32 +71,14 @@ func _process(delta: float) -> void:
 	_evaluate_fever_thresholds()
 
 
-func _apply_meter_decay(delta: float) -> void:
-	# During fever state, decay is suspended to allow maximum glory run
-	if is_fever_active:
-		return
-
-	var people_decay: float = DECAY_RATE * delta
-	var govt_decay: float = DECAY_RATE * govt_decay_modifier * delta
-
-	people_power -= people_decay
-	govt_power -= govt_decay
-
-	power_changed.emit(people_power, govt_power)
-	_evaluate_political_stability()
+func _apply_meter_decay(_delta: float) -> void:
+	# Political collapse disabled: coins and abilities accumulate without stress timer
+	pass
 
 
 func _evaluate_political_stability() -> void:
-	if is_game_over:
-		return
-
-	if people_power <= 0.0:
-		trigger_game_over("Overthrown by Popular Revolt! (People Support reached 0%)")
-		return
-
-	if govt_power <= 0.0:
-		trigger_game_over("Deposed by Royal Coup! (Govt Support reached 0%)")
-		return
+	# Character NEVER dies from meter collapse! Only obstacle crashes and void falls end the run.
+	pass
 
 
 ## Evaluates 90% threshold for Peasant Revolution & Divine Right fever states.
@@ -150,20 +135,23 @@ func _end_fever_state() -> void:
 func add_people_power(val: float) -> void:
 	if is_game_over:
 		return
-	# 2x bonus during Peasant Revolution fever
+	people_coins += 1
 	var final_val: float = val * (2.0 if (is_fever_active and current_fever_type == "peasant_revolution") else 1.0)
 	people_power = clampf(people_power + final_val, 0.0, 100.0)
 	power_changed.emit(people_power, govt_power)
-	_evaluate_political_stability()
+	coins_updated.emit(people_coins, govt_coins)
+	_evaluate_fever_thresholds()
 
 
 func add_govt_power(val: float) -> void:
 	if is_game_over:
 		return
+	govt_coins += 1
 	var final_val: float = val * (2.0 if (is_fever_active and current_fever_type == "divine_right") else 1.0)
 	govt_power = clampf(govt_power + final_val, 0.0, 100.0)
 	power_changed.emit(people_power, govt_power)
-	_evaluate_political_stability()
+	coins_updated.emit(people_coins, govt_coins)
+	_evaluate_fever_thresholds()
 
 
 func apply_decision(people_delta: float, govt_delta: float, notification: String) -> void:
@@ -172,9 +160,14 @@ func apply_decision(people_delta: float, govt_delta: float, notification: String
 
 	people_power = clampf(people_power + people_delta, 0.0, 100.0)
 	govt_power = clampf(govt_power + govt_delta, 0.0, 100.0)
+	if people_delta > 0:
+		people_coins += int(people_delta / 5.0)
+	if govt_delta > 0:
+		govt_coins += int(govt_delta / 5.0)
 	power_changed.emit(people_power, govt_power)
+	coins_updated.emit(people_coins, govt_coins)
 	decision_notification.emit(notification)
-	_evaluate_political_stability()
+	_evaluate_fever_thresholds()
 
 
 func trigger_game_over(reason: String = "Collision with obstacle") -> void:
@@ -193,8 +186,10 @@ func reset_state() -> void:
 	is_game_over = false
 	current_speed = INITIAL_SPEED
 	distance_traveled = 0.0
-	people_power = 50.0
-	govt_power = 50.0
+	people_coins = 0
+	govt_coins = 0
+	people_power = 0.0
+	govt_power = 0.0
 	is_fever_active = false
 	current_fever_type = ""
 	fever_timer = 0.0
@@ -202,6 +197,7 @@ func reset_state() -> void:
 	can_trigger_divine_fever = true
 	Engine.time_scale = 1.0
 	power_changed.emit(people_power, govt_power)
+	coins_updated.emit(people_coins, govt_coins)
 
 
 func restart_game() -> void:

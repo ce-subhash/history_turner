@@ -58,6 +58,7 @@ var people_tween: Tween = null
 var govt_tween: Tween = null
 var banner_tween: Tween = null
 var fever_tween: Tween = null
+var restart_pulse_tween: Tween = null
 
 var is_boss_chase_active: bool = false
 var boss_timer: float = 0.0
@@ -86,6 +87,8 @@ func _ready() -> void:
 	# Connect to GameManager autoload
 	if GameManager:
 		GameManager.power_changed.connect(_on_power_changed)
+		if GameManager.has_signal("coins_updated"):
+			GameManager.coins_updated.connect(_on_coins_updated)
 		GameManager.decision_notification.connect(_on_decision_notification)
 		GameManager.game_over.connect(_on_game_over)
 		GameManager.fever_state_started.connect(_on_fever_started)
@@ -94,6 +97,26 @@ func _ready() -> void:
 		GameManager.boss_started.connect(_on_boss_started)
 		GameManager.boss_ended.connect(_on_boss_ended)
 		_update_meter_visuals(GameManager.people_power, GameManager.govt_power)
+
+	# Clean Top Bar: Hide Balance Meter/Needle, show Distance & Coin Badges
+	var balance_widget = get_node_or_null("TopBar/HBoxContainer/CenterContainer/BalanceWidget")
+	if balance_widget:
+		balance_widget.visible = false
+	if distance_label:
+		distance_label.visible = true
+
+	var people_title = get_node_or_null("TopBar/HBoxContainer/PeopleBadge/HBox/VBox/PeopleTitle")
+	if people_title:
+		people_title.text = "People Coins"
+	var govt_title = get_node_or_null("TopBar/HBoxContainer/GovtBadge/HBox/VBox/GovtTitle")
+	if govt_title:
+		govt_title.text = "Govt Coins"
+
+	# User Request: Remove special ability button from screen
+	if ability_container:
+		ability_container.visible = false
+
+	_apply_mobile_safe_area()
 
 	# Connect to CharacterManager autoload
 	if CharacterManager:
@@ -166,21 +189,6 @@ func _process(delta: float) -> void:
 			else:
 				boss_countdown_label.text = "VICTORY!"
 
-		# Pulse warning alert on critical low political meters (<= 15.0)
-		if people_label:
-			if GameManager.people_power <= 15.0:
-				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-				people_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
-			else:
-				people_label.modulate = Color.WHITE
-
-		if govt_label:
-			if GameManager.govt_power <= 15.0:
-				var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-				govt_label.modulate = Color(1.0, 0.2 + 0.4 * pulse, 0.2 + 0.4 * pulse)
-			else:
-				govt_label.modulate = Color.WHITE
-
 
 func _on_pause_button_pressed() -> void:
 	var paused = get_tree().paused
@@ -211,30 +219,35 @@ func _on_power_changed(people: float, govt: float) -> void:
 	_update_meter_visuals(people, govt)
 
 
+func _on_coins_updated(people_coins: int, govt_coins: int) -> void:
+	if people_count_label:
+		people_count_label.text = str(people_coins)
+	if govt_count_label:
+		govt_count_label.text = str(govt_coins)
+
+
 func _update_meter_visuals(people: float, govt: float) -> void:
 	if people_bar:
 		people_bar.value = people
 	if people_label:
-		people_label.text = "%d%%" % int(people)
+		people_label.text = "%d" % GameManager.people_coins
 	if govt_bar:
 		govt_bar.value = govt
 	if govt_label:
-		govt_label.text = "%d%%" % int(govt)
+		govt_label.text = "%d" % GameManager.govt_coins
 
-	# Reference 1: Balance needle indicator and support token counters
 	if balance_needle:
 		var total: float = maxf(people + govt, 1.0)
 		var ratio: float = clampf(people / total, 0.05, 0.95)
-		# Bar width is 220, travel from x=10 to x=210
 		var target_x: float = ratio * 200.0 + 10.0 - (balance_needle.size.x * 0.5)
 		var tween: Tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_property(balance_needle, "position:x", target_x, 0.2)
 
 	if people_count_label:
-		people_count_label.text = "%d" % int(people * 4.8)
+		people_count_label.text = str(GameManager.people_coins)
 
 	if govt_count_label:
-		govt_count_label.text = "%d" % int(govt * 4.2)
+		govt_count_label.text = str(GameManager.govt_coins)
 
 
 # --- Phase 5 Timeline Codex Popup ---
@@ -314,14 +327,18 @@ func _show_custom_banner(text: String) -> void:
 	if banner_tween and banner_tween.is_running():
 		banner_tween.kill()
 
+	var top_bar = get_node_or_null("TopBar")
+	var target_y: float = (top_bar.position.y + top_bar.size.y + 8.0) if top_bar else 95.0
+	var start_y: float = target_y - 15.0
+
 	banner_tween = create_tween()
 	banner_panel.modulate.a = 0.0
-	banner_panel.position.y = 80.0
+	banner_panel.position.y = start_y
 	banner_tween.tween_property(banner_panel, "modulate:a", 1.0, 0.25)
-	banner_tween.parallel().tween_property(banner_panel, "position:y", 95.0, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	banner_tween.parallel().tween_property(banner_panel, "position:y", target_y, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	banner_tween.tween_interval(3.2)
 	banner_tween.tween_property(banner_panel, "modulate:a", 0.0, 0.35)
-	banner_tween.parallel().tween_property(banner_panel, "position:y", 80.0, 0.35)
+	banner_tween.parallel().tween_property(banner_panel, "position:y", start_y, 0.35)
 	banner_tween.tween_callback(func(): banner_panel.visible = false)
 
 
@@ -374,6 +391,8 @@ func _update_character_ui(character: Resource) -> void:
 	if ability_status_label:
 		ability_status_label.text = "READY [TAP]"
 		ability_status_label.modulate = Color(0.3, 1.0, 0.5)
+	if ability_container:
+		ability_container.visible = false
 
 
 func _pulse_ability_widget(color: Color) -> void:
@@ -389,8 +408,26 @@ func _pulse_ability_widget(color: Color) -> void:
 func _on_game_over(reason: String) -> void:
 	if game_over_panel:
 		game_over_panel.visible = true
-		game_over_reason_label.text = reason
-		final_score_label.text = "Distance: %s meters" % _format_number_with_commas(int(GameManager.distance_traveled))
+		var title_lbl = game_over_panel.get_node_or_null("VBoxContainer/TitleLabel")
+		if title_lbl:
+			title_lbl.text = "YOU FAILED"
+		if game_over_reason_label:
+			game_over_reason_label.visible = false
+			game_over_reason_label.text = ""
+		final_score_label.text = "Distance: %s meters\n❤️ %d Coins  |  🏛️ %d Coins" % [
+			_format_number_with_commas(int(GameManager.distance_traveled)),
+			GameManager.people_coins,
+			GameManager.govt_coins
+		]
+
+		# Pulse animation on the large primary Restart button
+		if restart_button:
+			restart_button.pivot_offset = Vector2(206, 42)
+			if restart_pulse_tween and restart_pulse_tween.is_running():
+				restart_pulse_tween.kill()
+			restart_pulse_tween = create_tween().set_loops()
+			restart_pulse_tween.tween_property(restart_button, "scale", Vector2(1.03, 1.03), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			restart_pulse_tween.tween_property(restart_button, "scale", Vector2(0.98, 0.98), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 	# Phase 5: Check if death condition unlocks tragic timeline card
 	if has_node("/root/SaveManager"):
@@ -402,10 +439,14 @@ func _on_game_over(reason: String) -> void:
 
 
 func _on_restart_pressed() -> void:
+	if restart_pulse_tween:
+		restart_pulse_tween.kill()
 	GameManager.restart_game()
 
 
 func _on_menu_pressed() -> void:
+	if restart_pulse_tween:
+		restart_pulse_tween.kill()
 	GameManager.reset_state()
 	get_tree().change_scene_to_file("res://scenes/ui/MainMenu.tscn")
 
@@ -454,3 +495,43 @@ func _configure_mouse_filters(node: Node) -> void:
 
 	for child in node.get_children():
 		_configure_mouse_filters(child)
+
+
+## Automatically applies safe area insets for notches, punch-holes, and home indicators on mobile screens.
+func _apply_mobile_safe_area() -> void:
+	var safe_area: Rect2i = DisplayServer.get_display_safe_area()
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+
+	var scale_y: float = vp_size.y / float(window_size.y) if window_size.y > 0 else 1.0
+	var scale_x: float = vp_size.x / float(window_size.x) if window_size.x > 0 else 1.0
+
+	var safe_top: int = int(safe_area.position.y * scale_y) if safe_area.position.y > 0 else 0
+	var safe_bottom: int = int((window_size.y - (safe_area.position.y + safe_area.size.y)) * scale_y) if safe_area.size.y > 0 and window_size.y > 0 else 0
+	var safe_left: int = int(safe_area.position.x * scale_x) if safe_area.position.x > 0 else 0
+	var safe_right: int = int((window_size.x - (safe_area.position.x + safe_area.size.x)) * scale_x) if safe_area.size.x > 0 and window_size.x > 0 else 0
+
+	var top_bar = get_node_or_null("TopBar")
+	if top_bar:
+		top_bar.add_theme_constant_override("margin_top", max(safe_top + 12, 16))
+		top_bar.add_theme_constant_override("margin_left", max(safe_left + 16, 24))
+		top_bar.add_theme_constant_override("margin_right", max(safe_right + 16, 24))
+
+	var bottom_controls = get_node_or_null("BottomControls")
+	if bottom_controls:
+		var bottom_inset = max(safe_bottom, 0)
+		bottom_controls.offset_bottom = -bottom_inset
+		bottom_controls.offset_top = -bottom_inset - 140.0
+
+	# Responsive banner panel width clamping to fit cleanly on narrow screens
+	if banner_panel:
+		var max_w = minf(640.0, vp_size.x - 32.0)
+		banner_panel.offset_left = -max_w * 0.5
+		banner_panel.offset_right = max_w * 0.5
+
+	if not get_tree().root.size_changed.is_connected(_on_screen_resized):
+		get_tree().root.size_changed.connect(_on_screen_resized)
+
+
+func _on_screen_resized() -> void:
+	_apply_mobile_safe_area()

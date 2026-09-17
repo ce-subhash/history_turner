@@ -195,6 +195,7 @@ func _setup_camera() -> void:
 	camera.position = Vector3(0.0, 3.8, 5.0)
 	camera.rotation_degrees = Vector3(-16.5, 0.0, 0.0)
 	camera.fov = 68.0
+	camera.keep_aspect = Camera3D.KEEP_WIDTH
 	camera.current = true
 
 
@@ -972,9 +973,12 @@ func _update_dynamic_camera(delta: float) -> void:
 # --- In-Run Power-Up Handlers & Juice Mechanics ---
 # ==============================================================================
 
-## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes for 3.5s).
-func activate_in_run_magnet(duration: float = 3.5) -> void:
+## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes for 2.5s).
+func activate_in_run_magnet(duration: float = 2.5) -> void:
 	in_run_magnet_timer = duration
+	_spawn_floating_text("🧲 MAGNET ON!", Color(0.2, 0.8, 1.0))
+	if GameManager:
+		GameManager.decision_notification.emit("🧲 ROYAL MAGNET: Vacuums All Coins Across All Lanes!")
 	if shield_mesh:
 		shield_mesh.visible = true
 		shield_mesh.material_override.albedo_color = Color(0.2, 0.8, 1.0, 0.7)
@@ -985,16 +989,21 @@ func activate_in_run_magnet(duration: float = 3.5) -> void:
 func activate_chrono_shield() -> void:
 	has_chrono_shield = true
 	_spawn_floating_text("🛡️ AEGIS READY!", Color(0.3, 1.0, 0.6))
+	if GameManager:
+		GameManager.decision_notification.emit("🛡️ AEGIS SHIELD: Absorbs 1 Fatal Crash!")
 	if shield_mesh:
 		shield_mesh.visible = true
 		shield_mesh.material_override.albedo_color = Color(0.25, 1.0, 0.5, 0.7)
 		shield_mesh.material_override.emission = Color(0.25, 1.0, 0.45)
 
 
-## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush for 2.5s).
-func activate_chariot_boost(duration: float = 2.5) -> void:
+## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush for 2.0s).
+func activate_chariot_boost(duration: float = 2.0) -> void:
 	chariot_boost_timer = duration
 	camera_trauma = 0.35
+	_spawn_floating_text("⚡ SPEED DASH!", Color(1.0, 0.85, 0.2))
+	if GameManager:
+		GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Invincible Speed & Smashes Obstacles!")
 	if shield_mesh:
 		shield_mesh.visible = true
 		shield_mesh.material_override.albedo_color = Color(1.0, 0.85, 0.2, 0.85)

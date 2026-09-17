@@ -127,21 +127,21 @@ func _on_body_entered(body: Node3D) -> void:
 	match powerup_type:
 		PowerUpType.MAGNET:
 			if body.has_method("activate_in_run_magnet"):
-				body.activate_in_run_magnet(3.5)
+				body.activate_in_run_magnet(2.5)
 			if GameManager:
-				GameManager.decision_notification.emit("🧲 ROYAL MAGNET: All Tokens Attracted! (3.5s)")
+				GameManager.decision_notification.emit("🧲 ROYAL MAGNET: Vacuums All Coins Across All Lanes!")
 
 		PowerUpType.SHIELD:
 			if body.has_method("activate_chrono_shield"):
 				body.activate_chrono_shield()
 			if GameManager:
-				GameManager.decision_notification.emit("🛡️ CHRONO SHIELD: Protected from next crash!")
+				GameManager.decision_notification.emit("🛡️ AEGIS SHIELD: Absorbs 1 Fatal Crash!")
 
 		PowerUpType.BOOST:
 			if body.has_method("activate_chariot_boost"):
-				body.activate_chariot_boost(2.5)
+				body.activate_chariot_boost(2.0)
 			if GameManager:
-				GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Unstoppable Force! (2.5s)")
+				GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Invincible Speed & Smashes Obstacles!")
 
 
 	# Upward burst animation

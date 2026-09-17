@@ -226,6 +226,79 @@ corner_radius_bottom_left = 12
 shadow_color = Color(0, 0, 0, 0.4)
 shadow_size = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_game_over_bg"]
+content_margin_left = 24.0
+content_margin_top = 26.0
+content_margin_right = 24.0
+content_margin_bottom = 26.0
+bg_color = Color(0.06, 0.08, 0.14, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.35, 0.35, 0.85)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0, 0, 0, 0.75)
+shadow_size = 28
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_big_restart_btn"]
+bg_color = Color(0.08, 0.68, 0.32, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 4
+border_color = Color(1, 0.9, 0.35, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.05, 0.55, 0.25, 0.6)
+shadow_size = 18
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_big_restart_hover"]
+bg_color = Color(0.12, 0.82, 0.4, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 4
+border_color = Color(1, 1, 0.6, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.12, 0.82, 0.4, 0.75)
+shadow_size = 22
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_big_restart_pressed"]
+bg_color = Color(0.06, 0.52, 0.25, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9, 0.8, 0.2, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sub_menu_btn"]
+bg_color = Color(0.12, 0.14, 0.22, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.52, 0.65, 0.5)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -317,7 +390,7 @@ text = "312"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 0.9)
 theme_override_font_sizes/font_size = 11
-text = "People Support"
+text = "People Coins"
 
 [node name="CenterContainer" type="VBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer"]
 layout_mode = 2
@@ -326,6 +399,7 @@ theme_override_constants/separation = 2
 alignment = 1
 
 [node name="BalanceWidget" type="VBoxContainer" parent="HUD/HUDController/TopBar/HBoxContainer/CenterContainer"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 0
 alignment = 1
@@ -377,9 +451,13 @@ size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_balance_red")
 
 [node name="DistanceLabel" type="Label" parent="HUD/HUDController/TopBar/HBoxContainer/CenterContainer"]
-visible = false
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.35, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
 text = "0 m"
+horizontal_alignment = 1
 
 [node name="GovtBadge" type="PanelContainer" parent="HUD/HUDController/TopBar/HBoxContainer"]
 custom_minimum_size = Vector2(170, 56)
@@ -413,7 +491,7 @@ text = "268"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 0.9)
 theme_override_font_sizes/font_size = 11
-text = "Govt Support"
+text = "Govt Coins"
 
 [node name="PauseButton" type="Button" parent="HUD/HUDController/TopBar/HBoxContainer"]
 custom_minimum_size = Vector2(48, 48)
@@ -452,7 +530,7 @@ theme_override_colors/font_color = Color(1, 1, 1, 0.75)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 12
-text = "Swipe to Move, Jump & Slide • Double-Tap for Ability"
+text = "Swipe to Move, Jump & Slide"
 horizontal_alignment = 1
 
 [node name="NotificationBanner" type="PanelContainer" parent="HUD/HUDController"]
@@ -477,6 +555,7 @@ theme_override_font_sizes/font_size = 17
 text = "History Shifted: Caesar allied with the Plebs!"
 horizontal_alignment = 1
 vertical_alignment = 1
+autowrap_mode = 2
 
 [node name="BossPanel" type="PanelContainer" parent="HUD/HUDController"]
 visible = false
@@ -551,52 +630,74 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -140.0
-offset_right = 220.0
-offset_bottom = 140.0
+offset_left = -230.0
+offset_top = -180.0
+offset_right = 230.0
+offset_bottom = 190.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_game_over_bg")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HUD/HUDController/GameOverPanel"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="TitleLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.25, 0.3, 1)
-theme_override_font_sizes/font_size = 30
-text = "REGIME COLLAPSED"
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_offset_y = 3
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 36
+text = "YOU FAILED"
 horizontal_alignment = 1
 
 [node name="ReasonLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
 theme_override_font_sizes/font_size = 16
-text = "Overthrown by Popular Revolt!"
+text = ""
 horizontal_alignment = 1
 
 [node name="FinalScoreLabel" type="Label" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 18
 text = "Distance: 0 meters"
 horizontal_alignment = 1
 
 [node name="RestartButton" type="Button" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "RESTART TIMELINE"
+pivot_offset = Vector2(206, 42)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_big_restart_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_big_restart_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_big_restart_pressed")
+text = "▶   RESTART RUN   ◀"
 
 [node name="MenuButton" type="Button" parent="HUD/HUDController/GameOverPanel/VBoxContainer"]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "RETURN TO MAIN MENU"
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 0.8)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_sub_menu_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_sub_menu_btn")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_sub_menu_btn")
+text = "✕   RETURN TO MAIN MENU"
 
 
 [node name="AbilityWidget" type="PanelContainer" parent="HUD/HUDController"]
+visible = false
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0

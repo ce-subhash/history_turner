@@ -4,6 +4,7 @@ const CHIBI_RES = preload("res://resources/characters/chibi_leader.tres")
 const CAESAR_RES = preload("res://resources/characters/caesar.tres")
 const JOAN_RES = preload("res://resources/characters/joan.tres")
 const HARRIET_RES = preload("res://resources/characters/harriet.tres")
+const FactionRunwayScript = preload("res://scripts/world/FactionRunway.gd")
 
 func _ready() -> void:
 	print("--- Running Automated Tests: Chibi Leader, Capital Boulevard, Moving Bull Cart, Police Dogs, Reference 1 HUD ---")
@@ -166,6 +167,28 @@ func _ready() -> void:
 	temple_token.queue_free()
 	print("✔ Collectibles (Red Heart People tokens & Blue Temple Govt tokens) verified.")
 
+	# 7b. Pure Coin Accumulation & Zero Meter Death Verification
+	GameManager.reset_state()
+	GameManager.add_people_power(5.0)
+	assert(GameManager.people_coins == 1, "People coins must increment on Heart pickup")
+	assert(GameManager.people_power > 0.0, "People power must accumulate")
+
+	GameManager.add_govt_power(5.0)
+	assert(GameManager.govt_coins == 1, "Govt coins must increment on Temple pickup")
+	assert(GameManager.govt_power > 0.0, "Govt power must accumulate")
+
+	# Critical Requirement: Character must NEVER die because of 0% meter
+	GameManager.people_power = 0.0
+	GameManager.govt_power = 0.0
+	GameManager._evaluate_political_stability()
+	assert(!GameManager.is_game_over, "Character must NEVER die because of 0% political meter!")
+
+	var runway_test = FactionRunwayScript.new()
+	assert(runway_test.find_child("PeopleTrigger", true, false) != null, "Runway must have People boost trigger")
+	assert(runway_test.find_child("GovtTrigger", true, false) != null, "Runway must have Govt boost trigger")
+	runway_test.queue_free()
+	print("✔ Dual Coin Accumulation & Zero Meter Deaths (Never Dies from Meter) verified.")
+
 	# 8. Elevated Camera & Portrait Mode Verification
 	assert(player.camera.position.y >= 3.5, "Camera must be elevated (>= 3.5m) for deep road visibility")
 	var vp_w = ProjectSettings.get_setting("display/window/size/viewport_width")
@@ -253,6 +276,38 @@ func _ready() -> void:
 	player._physics_process(0.02)
 	assert(GameManager.is_game_over, "Falling off road into void (Y < -4.0) must trigger Game Over")
 	print("✔ Void fall death boundary (Y < -4.0) verified.")
+
+	# Verify 'YOU FAILED' screen and no obstacle name shown
+	var title_lbl = hud.game_over_panel.find_child("TitleLabel", true, false)
+	assert(title_lbl.text == "YOU FAILED", "Game Over screen must display 'YOU FAILED'")
+	var reason_lbl = hud.game_over_panel.find_child("ReasonLabel", true, false)
+	assert(reason_lbl.visible == false or reason_lbl.text == "", "Game Over screen must NOT display obstacle names")
+	var restart_btn = hud.game_over_panel.find_child("RestartButton", true, false)
+	var menu_btn = hud.game_over_panel.find_child("MenuButton", true, false)
+	assert(restart_btn != null and menu_btn != null, "Restart and Menu buttons must exist")
+	assert(restart_btn.custom_minimum_size.y >= menu_btn.custom_minimum_size.y * 1.8, "Restart button must be significantly bigger than Menu button (>= 1.8x height)")
+	assert(restart_btn.get_theme_font_size("font_size") > menu_btn.get_theme_font_size("font_size"), "Restart button font must be significantly larger")
+	print("✔ Clean 'YOU FAILED' game over display & significantly larger Restart button (84px vs 42px) verified.")
+
+	# 12. Mobile Screen Scaling & Safe Area Tests
+	assert(player.camera.keep_aspect == Camera3D.KEEP_WIDTH, "Camera must use KEEP_WIDTH for mobile screen scaling so all lanes remain visible on tall screens")
+	assert(player.camera.fov >= 65.0, "Camera FOV must comfortably display all 3 lanes on mobile")
+	hud._apply_mobile_safe_area()
+	var top_bar = hud.get_node_or_null("TopBar")
+	assert(top_bar != null, "TopBar must exist in HUD")
+	assert(top_bar.get_theme_constant("margin_top") >= 16, "TopBar margin_top must respect mobile top safe area")
+
+	# Test Main Menu mobile safe area
+	var menu_scn = load("res://scenes/ui/MainMenu.tscn")
+	assert(menu_scn != null, "MainMenu.tscn must load")
+	var menu_inst = menu_scn.instantiate()
+	add_child(menu_inst)
+	menu_inst._apply_mobile_safe_area()
+	var menu_margin = menu_inst.get_node_or_null("MainMargin")
+	assert(menu_margin != null, "MainMargin must exist on MainMenu")
+	assert(menu_margin.get_theme_constant("margin_top") >= 56, "MainMargin must adapt to safe area on mobile")
+	menu_inst.queue_free()
+	print("✔ Mobile screen scaling (Camera KEEP_WIDTH, HUD safe area, MainMenu safe area) verified.")
 
 
 	print("\n=========================================================================")
