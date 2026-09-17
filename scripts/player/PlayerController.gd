@@ -67,7 +67,7 @@ const LANE_RIGHT: float = 2.5
 const LANE_WIDTH: float = 2.5
 const LANE_SWITCH_DURATION: float = 0.15
 
-const JUMP_VELOCITY: float = 9.0
+const JUMP_VELOCITY: float = 9.5
 const GRAVITY_MULTIPLIER: float = 26.0
 
 const SLIDE_DURATION: float = 0.8
@@ -435,7 +435,7 @@ func _physics_process(delta: float) -> void:
 		if not is_on_floor():
 			velocity.y -= GRAVITY_MULTIPLIER * delta
 		elif velocity.y < 0:
-			velocity.y = 0.0
+				velocity.y = 0.0
 
 	move_and_slide()
 

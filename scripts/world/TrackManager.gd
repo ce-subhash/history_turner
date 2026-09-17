@@ -475,9 +475,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.8, 1.4, 2.2)
+			box.size = Vector3(1.6, 0.82, 2.0)
 			col.shape = box
-			col.position = Vector3(0.0, 0.7, 0.0)
+			col.position = Vector3(0.0, 0.41, 0.0)
 			body.add_child(col)
 
 			var sprite: Sprite3D = Sprite3D.new()
@@ -503,9 +503,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.8, 1.3, 0.6)
+			box.size = Vector3(1.6, 0.82, 0.5)
 			col.shape = box
-			col.position = Vector3(0.0, 0.65, 0.0)
+			col.position = Vector3(0.0, 0.41, 0.0)
 			body.add_child(col)
 
 			var sprite: Sprite3D = Sprite3D.new()
@@ -530,9 +530,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(2.0, 1.3, 0.4)
+			box.size = Vector3(1.8, 0.80, 0.3)
 			col.shape = box
-			col.position = Vector3(0.0, 0.65, 0.0)
+			col.position = Vector3(0.0, 0.40, 0.0)
 			body.add_child(col)
 
 			var sprite: Sprite3D = Sprite3D.new()
@@ -570,9 +570,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.8, 1.1, 0.4)
+			box.size = Vector3(1.6, 0.80, 0.3)
 			col.shape = box
-			col.position = Vector3(0.0, 0.55, 0.0)
+			col.position = Vector3(0.0, 0.40, 0.0)
 			body.add_child(col)
 
 			var visual = WOODEN_ROADBLOCK_SCN.instantiate()
