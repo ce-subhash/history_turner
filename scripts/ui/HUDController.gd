@@ -142,6 +142,7 @@ func _ready() -> void:
 		menu_button.pressed.connect(_on_menu_pressed)
 
 	if pause_button:
+		pause_button.visible = false
 		pause_button.pressed.connect(_on_pause_button_pressed)
 
 	if touch_left_btn:

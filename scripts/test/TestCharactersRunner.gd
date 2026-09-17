@@ -189,12 +189,12 @@ func _ready() -> void:
 	runway_test.queue_free()
 	print("✔ Dual Coin Accumulation & Zero Meter Deaths (Never Dies from Meter) verified.")
 
-	# 8. Elevated Camera & Portrait Mode Verification
-	assert(player.camera.position.y >= 3.5, "Camera must be elevated (>= 3.5m) for deep road visibility")
+	# 8. Closer Zoom Camera & Portrait Mode Verification
+	assert(player.camera.position.y >= 2.2 and player.camera.position.y <= 3.2, "Camera must be closely elevated (y=2.5m) to eliminate empty space")
 	var vp_w = ProjectSettings.get_setting("display/window/size/viewport_width")
 	var vp_h = ProjectSettings.get_setting("display/window/size/viewport_height")
 	assert(vp_h > vp_w, "Game must be configured in portrait mode (viewport height > width)")
-	print("✔ Mobile Portrait Mode (720x1280) & Elevated Camera perspective (y=3.8m) verified.")
+	print("✔ Mobile Portrait Mode (720x1280) & Closer Zoom Camera perspective (y=2.5m, z=3.6m) verified.")
 
 	# 9. Reference 1 Mobile HUD & Swipe Gesture Controls
 	var hud = main_inst.find_child("HUDController", true, false)
@@ -289,9 +289,29 @@ func _ready() -> void:
 	assert(restart_btn.get_theme_font_size("font_size") > menu_btn.get_theme_font_size("font_size"), "Restart button font must be significantly larger")
 	print("✔ Clean 'YOU FAILED' game over display & significantly larger Restart button (84px vs 42px) verified.")
 
-	# 12. Mobile Screen Scaling & Safe Area Tests
+	# 12. Mobile Screen Scaling, Closer Camera Zoom & Safe Area Tests
 	assert(player.camera.keep_aspect == Camera3D.KEEP_WIDTH, "Camera must use KEEP_WIDTH for mobile screen scaling so all lanes remain visible on tall screens")
-	assert(player.camera.fov >= 65.0, "Camera FOV must comfortably display all 3 lanes on mobile")
+	assert(player.camera.position.z <= 4.0, "Camera must be zoomed in closer to player (Z <= 4.0m) to eliminate excessive empty bottom space")
+	assert(player.camera.position.y <= 3.0, "Camera elevation must be lowered (Y <= 3.0m) to reduce top sky empty space")
+	assert(player.camera.fov >= 55.0 and player.camera.fov <= 68.0, "Camera FOV must frame runner closely and clearly")
+
+	# Verify Pause Button is hidden from gameplay screen
+	var pause_btn = hud.get_node_or_null("TopBar/HBoxContainer/PauseButton")
+	assert(pause_btn == null or pause_btn.visible == false, "Pause button must be hidden from gameplay screen")
+
+	# Verify yellow ring power immediately hides upon expiration
+	GameManager.is_game_over = false
+	CharacterManager.is_ability_active = false
+	CharacterManager.active_timer = 0.0
+	player.has_chrono_shield = false
+	player.is_peasant_fever = false
+	player.is_divine_fever = false
+	player.activate_chariot_boost(0.01)
+	assert(player.shield_mesh.visible == true, "Shield mesh must show while boost is active")
+	player.chariot_boost_timer = 0.0
+	player._physics_process(0.02)
+	assert(player.shield_mesh.visible == false, "Yellow ring power must immediately hide upon expiration")
+
 	hud._apply_mobile_safe_area()
 	var top_bar = hud.get_node_or_null("TopBar")
 	assert(top_bar != null, "TopBar must exist in HUD")
@@ -307,7 +327,7 @@ func _ready() -> void:
 	assert(menu_margin != null, "MainMargin must exist on MainMenu")
 	assert(menu_margin.get_theme_constant("margin_top") >= 56, "MainMargin must adapt to safe area on mobile")
 	menu_inst.queue_free()
-	print("✔ Mobile screen scaling (Camera KEEP_WIDTH, HUD safe area, MainMenu safe area) verified.")
+	print("✔ Mobile screen scaling, closer camera zoom (Z=3.6m, Y=2.5m, FOV=58°), hidden pause button & ring cleanup verified.")
 
 
 	print("\n=========================================================================")

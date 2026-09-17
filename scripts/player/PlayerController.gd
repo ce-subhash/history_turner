@@ -192,9 +192,9 @@ func _setup_camera() -> void:
 		camera.name = "Camera3D"
 		add_child(camera)
 
-	camera.position = Vector3(0.0, 3.8, 5.0)
-	camera.rotation_degrees = Vector3(-16.5, 0.0, 0.0)
-	camera.fov = 68.0
+	camera.position = Vector3(0.0, 2.5, 3.6)
+	camera.rotation_degrees = Vector3(-13.5, 0.0, 0.0)
+	camera.fov = 58.0
 	camera.keep_aspect = Camera3D.KEEP_WIDTH
 	camera.current = true
 
@@ -444,9 +444,19 @@ func _physics_process(delta: float) -> void:
 		chariot_boost_timer -= delta
 		chariot_speed_boost = 8.0
 		is_invulnerable = true
+		if chariot_boost_timer <= 0.0:
+			chariot_boost_timer = 0.0
+			is_invulnerable = false
+			_update_shield_mesh_visibility()
 
 	if in_run_magnet_timer > 0.0:
 		in_run_magnet_timer -= delta
+		if in_run_magnet_timer <= 0.0:
+			in_run_magnet_timer = 0.0
+			_update_shield_mesh_visibility()
+
+	if shield_mesh and shield_mesh.visible and chariot_boost_timer <= 0.0 and in_run_magnet_timer <= 0.0 and not has_chrono_shield and not is_peasant_fever and not is_divine_fever and not (CharacterManager and CharacterManager.is_ability_active):
+		shield_mesh.visible = false
 
 	# Forward Speed with momentary Ramp Boost & Chariot Boost
 	var speed_modifier: float = 1.0
@@ -693,8 +703,21 @@ func _on_fever_started(fever_type: String, _duration: float) -> void:
 func _on_fever_ended(_fever_type: String) -> void:
 	is_peasant_fever = false
 	is_divine_fever = false
-	if not is_invulnerable and not is_ghost_mode:
-		shield_mesh.visible = false
+	_update_shield_mesh_visibility()
+
+
+func _update_shield_mesh_visibility() -> void:
+	if not shield_mesh:
+		return
+	var active: bool = (
+		chariot_boost_timer > 0.0 or
+		in_run_magnet_timer > 0.0 or
+		has_chrono_shield or
+		is_peasant_fever or
+		is_divine_fever or
+		(CharacterManager != null and CharacterManager.is_ability_active)
+	)
+	shield_mesh.visible = active
 
 
 # --- Ability & Perk Event Handlers ---
@@ -935,15 +958,15 @@ func _update_dynamic_camera(delta: float) -> void:
 	if not camera:
 		return
 
-	# 1. Dynamic Speed FOV: widen FOV from 68° to 80° (up to 84° during Chariot Boost)
+	# 1. Dynamic Speed FOV: widen FOV from 58° to 68° (up to 72° during Chariot Boost)
 	var speed_ratio: float = clampf((GameManager.current_speed - 12.0) / 16.0, 0.0, 1.0)
-	var target_fov: float = lerpf(68.0, 80.0, speed_ratio)
+	var target_fov: float = lerpf(58.0, 68.0, speed_ratio)
 	if chariot_boost_timer > 0.0:
-		target_fov += 5.0
+		target_fov += 4.0
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
 	# 2. Footstep micro-bobbing synchronized with running stride and landing dip
-	var base_cam_y: float = 3.8 + landing_dip_offset
+	var base_cam_y: float = 2.5 + landing_dip_offset
 	landing_dip_offset = lerpf(landing_dip_offset, 0.0, 8.0 * delta)
 
 	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
@@ -973,8 +996,8 @@ func _update_dynamic_camera(delta: float) -> void:
 # --- In-Run Power-Up Handlers & Juice Mechanics ---
 # ==============================================================================
 
-## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes for 2.5s).
-func activate_in_run_magnet(duration: float = 2.5) -> void:
+## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes for 1.8s).
+func activate_in_run_magnet(duration: float = 1.8) -> void:
 	in_run_magnet_timer = duration
 	_spawn_floating_text("🧲 MAGNET ON!", Color(0.2, 0.8, 1.0))
 	if GameManager:
@@ -997,8 +1020,8 @@ func activate_chrono_shield() -> void:
 		shield_mesh.material_override.emission = Color(0.25, 1.0, 0.45)
 
 
-## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush for 2.0s).
-func activate_chariot_boost(duration: float = 2.0) -> void:
+## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush for 1.4s).
+func activate_chariot_boost(duration: float = 1.4) -> void:
 	chariot_boost_timer = duration
 	camera_trauma = 0.35
 	_spawn_floating_text("⚡ SPEED DASH!", Color(1.0, 0.85, 0.2))
@@ -1024,8 +1047,7 @@ func _trigger_shield_break(obstacle: Node3D) -> void:
 	_spawn_floating_text("🛡️ AEGIS CRASH ABSORPTION!", Color(0.3, 1.0, 0.6))
 	if GameManager:
 		GameManager.decision_notification.emit("🛡️ AEGIS SHIELD: Collision absorbed safely!")
-	if shield_mesh and not (in_run_magnet_timer > 0.0 or chariot_boost_timer > 0.0):
-		shield_mesh.visible = false
+	_update_shield_mesh_visibility()
 
 
 ## Evaluates close-call / near-miss brush with obstacles along the road.

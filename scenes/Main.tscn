@@ -328,7 +328,9 @@ shape = SubResource("CapsuleShape3D_player")
 [node name="VisualModel" type="Node3D" parent="Player"]
 
 [node name="Camera3D" type="Camera3D" parent="Player"]
-transform = Transform3D(1, 0, 0, 0, 0.95882, 0.284015, 0, -0.284015, 0.95882, 0, 3.8, 5)
+transform = Transform3D(1, 0, 0, 0, 0.97237, 0.233445, 0, -0.233445, 0.97237, 0, 2.5, 3.6)
+fov = 58.0
+keep_aspect = 0
 current = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
@@ -494,6 +496,7 @@ theme_override_font_sizes/font_size = 11
 text = "Govt Coins"
 
 [node name="PauseButton" type="Button" parent="HUD/HUDController/TopBar/HBoxContainer"]
+visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20

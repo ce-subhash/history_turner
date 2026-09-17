@@ -127,7 +127,7 @@ func _on_body_entered(body: Node3D) -> void:
 	match powerup_type:
 		PowerUpType.MAGNET:
 			if body.has_method("activate_in_run_magnet"):
-				body.activate_in_run_magnet(2.5)
+				body.activate_in_run_magnet(1.8)
 			if GameManager:
 				GameManager.decision_notification.emit("🧲 ROYAL MAGNET: Vacuums All Coins Across All Lanes!")
 
@@ -139,7 +139,7 @@ func _on_body_entered(body: Node3D) -> void:
 
 		PowerUpType.BOOST:
 			if body.has_method("activate_chariot_boost"):
-				body.activate_chariot_boost(2.0)
+				body.activate_chariot_boost(1.4)
 			if GameManager:
 				GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Invincible Speed & Smashes Obstacles!")
 
