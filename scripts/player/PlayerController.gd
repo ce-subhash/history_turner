@@ -192,9 +192,9 @@ func _setup_camera() -> void:
 		camera.name = "Camera3D"
 		add_child(camera)
 
-	camera.position = Vector3(0.0, 2.5, 3.6)
-	camera.rotation_degrees = Vector3(-13.5, 0.0, 0.0)
-	camera.fov = 58.0
+	camera.position = Vector3(0.0, 2.85, 3.8)
+	camera.rotation_degrees = Vector3(-18.0, 0.0, 0.0)
+	camera.fov = 55.0
 	camera.keep_aspect = Camera3D.KEEP_WIDTH
 	camera.current = true
 
@@ -958,15 +958,15 @@ func _update_dynamic_camera(delta: float) -> void:
 	if not camera:
 		return
 
-	# 1. Dynamic Speed FOV: widen FOV from 58° to 68° (up to 72° during Chariot Boost)
+	# 1. Dynamic Speed FOV: widen FOV from 55° to 65° (up to 69° during Chariot Boost)
 	var speed_ratio: float = clampf((GameManager.current_speed - 12.0) / 16.0, 0.0, 1.0)
-	var target_fov: float = lerpf(58.0, 68.0, speed_ratio)
+	var target_fov: float = lerpf(55.0, 65.0, speed_ratio)
 	if chariot_boost_timer > 0.0:
 		target_fov += 4.0
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
 	# 2. Footstep micro-bobbing synchronized with running stride and landing dip
-	var base_cam_y: float = 2.5 + landing_dip_offset
+	var base_cam_y: float = 2.85 + landing_dip_offset
 	landing_dip_offset = lerpf(landing_dip_offset, 0.0, 8.0 * delta)
 
 	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
