@@ -8,10 +8,11 @@ character_name = "Julius Caesar"
 era_name = "Classical Rome (44 BCE)"
 base_speed_modifier = 1.0
 active_ability_name = "Testudo Shield Wall"
-active_duration = 6.0
+active_duration = 3.5
 active_cooldown = 20.0
 passive_perk_type = "pax_romana"
-ability_description = "Forms an impenetrable shield wall; immune to all obstacles for 6s."
+ability_description = "Forms an impenetrable shield wall; immune to all obstacles for 3.5s."
+
 passive_description = "Pax Romana: Government favor decay rate is reduced by 15%."
 theme_color = Color(0.95, 0.25, 0.25, 1)
 difficulty_rating = "Easy / Defense"

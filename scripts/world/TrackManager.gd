@@ -17,6 +17,8 @@ const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
 const MovingObstacleScript = preload("res://scripts/world/MovingObstacle.gd")
 const JumpRampScript = preload("res://scripts/world/JumpRamp.gd")
 const PowerUpPickupScript = preload("res://scripts/world/PowerUpPickup.gd")
+const WoodFireObstacleScript = preload("res://scripts/world/WoodFireObstacle.gd")
+
 
 
 # 3D GLB Props
@@ -38,6 +40,7 @@ const POLICE_BARRICADE_TEX = preload("res://assets/sprites/props/police_barricad
 const JUMP_RAMP_TEX = preload("res://assets/sprites/props/jump_ramp.png")
 const BULL_CART_TEX = preload("res://assets/sprites/props/bull_cart.png")
 const STONE_BLOCK_TEX = preload("res://assets/sprites/props/stone_block.png")
+const WOOD_FIRE_TEX = preload("res://assets/sprites/props/wood_fire.png")
 
 # --- Configuration Constants ---
 const CHUNK_LENGTH: float = 30.0
@@ -51,12 +54,14 @@ const BOSS_ENCOUNTER_INTERVAL: float = 1500.0
 const ERA_PORTAL_INTERVAL: float = 2500.0
 
 enum ObstacleCategory {
-	BULL_CART,        # Moving bull cart (Normal People faction)
+	WOOD_FIRE,        # Three-wood tripod bonfire / campfire (People faction)
+	BULL_CART = 0,    # Backwards-compatible alias for tests
 	STONE_BLOCK,      # Classical Carved Stone Monument Block
 	POLICE_BARRICADE, # Riot police barricade with shields (Police faction)
 	WOODEN_ROADBLOCK, # Timber barricade with NO ENTRY plaque
-	JUMP_RAMP         # Blue steel launch ramp
+	JUMP_RAMP         # Launch ramp
 }
+
 
 # --- Exported Properties ---
 @export var player_node: CharacterBody3D
@@ -399,7 +404,7 @@ func _populate_chunk_obstacles(chunk: Node3D) -> void:
 func _pick_random_obstacle_category() -> ObstacleCategory:
 	var roll: float = randf()
 	if roll < 0.25:
-		return ObstacleCategory.BULL_CART        # Moving Bull Cart (People)
+		return ObstacleCategory.WOOD_FIRE        # Three-Wood Tripod Campfire (People)
 	elif roll < 0.48:
 		return ObstacleCategory.STONE_BLOCK      # Classical Carved Stone Block
 	elif roll < 0.70:
@@ -408,6 +413,7 @@ func _pick_random_obstacle_category() -> ObstacleCategory:
 		return ObstacleCategory.WOODEN_ROADBLOCK # Wooden Roadblock
 	else:
 		return ObstacleCategory.JUMP_RAMP        # Jump Ramp
+
 
 
 func _populate_chunk_collectibles(chunk: Node3D) -> void:
@@ -427,11 +433,12 @@ func _populate_chunk_collectibles(chunk: Node3D) -> void:
 		container.add_child(token)
 
 
-## Periodically spawns a game-changing powerup pickup (Magnet, Shield, or Imperial Dash).
+## Periodically spawns a rare game-changing powerup pickup (Magnet, Shield, or Imperial Dash).
 func _maybe_spawn_powerup(chunk: Node3D) -> void:
-	# Spawn once every 6 chunks (~180m) to keep them special and impactful
-	if chunks_spawned_count < 4 or (chunks_spawned_count % 6 != 0):
+	# Truly rare arcade treat: only checks every 16 chunks (~480m) with 65% spawn chance
+	if chunks_spawned_count < 8 or (chunks_spawned_count % 16 != 0) or randf() > 0.65:
 		return
+
 
 	var container: Node3D = chunk.get_node("DynamicElements")
 	var powerup = PowerUpPickupScript.new()
@@ -486,39 +493,11 @@ func _create_collectible(type: int) -> Area3D:
 
 func _create_obstacle(category: ObstacleCategory) -> Node3D:
 	match category:
-		ObstacleCategory.BULL_CART:
-			# Dynamic Moving Bull Cart (Normal People Faction Obstacle)
-			var root: Node3D = Node3D.new()
-			root.name = "Obstacle_BullCart"
-			root.set_script(MovingObstacleScript)
-			root.set("speed", 2.2) # Trundles along lane
-			root.set("move_direction", Vector3(0, 0, 1.0)) # Moves down lane
+		ObstacleCategory.WOOD_FIRE:
+			# Three-Wood Tripod Campfire Obstacle (Static, easy-to-jump hazard)
+			var fire_obs: Node3D = WoodFireObstacleScript.new()
+			return fire_obs
 
-			var body: StaticBody3D = StaticBody3D.new()
-			body.name = "CartBody"
-			body.add_to_group("obstacles")
-
-			var col: CollisionShape3D = CollisionShape3D.new()
-			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.6, 0.82, 2.0)
-			col.shape = box
-			col.position = Vector3(0.0, 0.41, 0.0)
-			body.add_child(col)
-
-			var sprite: Sprite3D = Sprite3D.new()
-			sprite.name = "BullCartSprite"
-			sprite.texture = BULL_CART_TEX
-			sprite.centered = true
-			sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
-			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-			sprite.pixel_size = 2.1 / 1024.0
-			sprite.position = Vector3(0.0, 1.05, 0.0)
-			sprite.rotation_degrees = Vector3.ZERO
-			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			body.add_child(sprite)
-
-			root.add_child(body)
-			return root
 
 		ObstacleCategory.STONE_BLOCK:
 			# Heavy Classical Carved Stone Monument Block (Ancient Republic Obstacle)

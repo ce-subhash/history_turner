@@ -123,13 +123,13 @@ func _on_body_entered(body: Node3D) -> void:
 	if has_node("/root/AudioManager"):
 		get_node("/root/AudioManager").play_sfx_powerup()
 
-	# Activate Power-Up on Player
+	# Activate Power-Up on Player (Snappy, short arcade durations)
 	match powerup_type:
 		PowerUpType.MAGNET:
 			if body.has_method("activate_in_run_magnet"):
-				body.activate_in_run_magnet(8.0)
+				body.activate_in_run_magnet(3.5)
 			if GameManager:
-				GameManager.decision_notification.emit("🧲 ROYAL MAGNET: All Tokens Attracted! (8s)")
+				GameManager.decision_notification.emit("🧲 ROYAL MAGNET: All Tokens Attracted! (3.5s)")
 
 		PowerUpType.SHIELD:
 			if body.has_method("activate_chrono_shield"):
@@ -139,9 +139,10 @@ func _on_body_entered(body: Node3D) -> void:
 
 		PowerUpType.BOOST:
 			if body.has_method("activate_chariot_boost"):
-				body.activate_chariot_boost(5.0)
+				body.activate_chariot_boost(2.5)
 			if GameManager:
-				GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Unstoppable Force! (5s)")
+				GameManager.decision_notification.emit("⚡ IMPERIAL DASH: Unstoppable Force! (2.5s)")
+
 
 	# Upward burst animation
 	var tween: Tween = create_tween()

@@ -8,10 +8,11 @@ character_name = "Chibi Leader"
 era_name = "Modern Republic (2026)"
 base_speed_modifier = 1.0
 active_ability_name = "People's Mandate"
-active_duration = 6.0
+active_duration = 3.5
 active_cooldown = 18.0
 passive_perk_type = "popular_mandate"
-ability_description = "Unleashes popular momentum; grants invulnerability and attracts all tokens for 6s."
+ability_description = "Unleashes popular momentum; grants invulnerability and attracts all tokens for 3.5s."
+
 passive_description = "Popular Mandate: Political balance recovers faster toward the center."
 theme_color = Color(1.0, 0.45, 0.15, 1)
 difficulty_rating = "Balanced / Leader"

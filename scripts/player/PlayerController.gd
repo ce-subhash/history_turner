@@ -457,6 +457,8 @@ func _physics_process(delta: float) -> void:
 		boost = ramp_speed_bonus * (ramp_boost_timer / 2.5)
 		ramp_boost_timer = maxf(0.0, ramp_boost_timer - delta)
 
+	# Lateral movement is strictly lane-based; physics collisions must NEVER add lateral velocity
+	velocity.x = 0.0
 	velocity.z = -(GameManager.current_speed * speed_modifier + boost + chariot_speed_boost)
 
 	# Peasant Revolution Flight Mode: Glide smoothly at Y = 2.4m
@@ -471,6 +473,33 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+	# Zero out any lateral velocity resulting from collision deflection
+	velocity.x = 0.0
+
+	# Void Fall Detection: If player falls off the track
+	if position.y < -4.0 and not GameManager.is_game_over:
+		if has_node("/root/AudioManager"):
+			get_node("/root/AudioManager").play_sfx_void_fall()
+		GameManager.trigger_game_over("Fell into the Temporal Void!")
+		return
+
+	# Strict Lateral Track Bounds Locking (Never allows player to get knocked off the road)
+	if absf(position.x) <= 4.0:
+		if lane_tween and lane_tween.is_running():
+			position.x = clampf(position.x, -LANE_WIDTH, LANE_WIDTH)
+		elif not GameManager.is_game_over:
+			position.x = current_lane * LANE_WIDTH
+
+		# Road surface floor & ceiling clamp
+		if position.y < 0.0:
+			position.y = 0.0
+			if velocity.y < 0.0:
+				velocity.y = 0.0
+		elif position.y > 4.2:
+			position.y = 4.2
+			if velocity.y > 0.0:
+				velocity.y = 0.0
+
 	# Landing Impact Juice
 	var on_floor: bool = is_on_floor() or position.y <= 0.04
 	if on_floor and not was_on_floor_last_frame and not is_sliding:
@@ -480,23 +509,19 @@ func _physics_process(delta: float) -> void:
 			dust_particles.restart()
 	was_on_floor_last_frame = on_floor
 
-	# Guaranteed road surface clamp: Player can NEVER sink below road while on track lanes
-	if abs(position.x) <= 5.5:
-		if position.y < -0.12:
-			position.y = 0.0
-			if velocity.y < 0.0:
-				velocity.y = 0.0
 
-	# Void Fall Detection: If player falls off the track
-	if position.y < -4.0 and not GameManager.is_game_over:
-		if has_node("/root/AudioManager"):
-			get_node("/root/AudioManager").play_sfx_void_fall()
-		GameManager.trigger_game_over("Fell into the Temporal Void!")
-		return
+	# Proactive hazard clearing ahead of runner during Chariot Boost / Peasant Fever
+	if chariot_boost_timer > 0.0 or is_peasant_fever:
+		for node in get_tree().root.find_children("Obstacle_*", "StaticBody3D", true, false):
+			var dz: float = node.global_position.z - global_position.z
+			if dz < 0.5 and dz > -3.5 and absf(node.global_position.x - position.x) < 2.0:
+				_smash_obstacle(node as Node3D)
+				_spawn_floating_text("💥 SMASH! +50", Color(1.0, 0.85, 0.2))
 
 	_update_procedural_animations(delta)
 	_update_dynamic_camera(delta)
 	_check_close_calls(delta)
+
 
 	# Divine Right Artillery Barrage: Clears upcoming hazards
 	if is_divine_fever:
@@ -614,6 +639,12 @@ func _trigger_cleopatra_asp() -> void:
 func _smash_obstacle(obstacle: Node3D) -> void:
 	if not obstacle:
 		return
+	# Immediately disable collision on all shapes to prevent physical snagging / lateral push
+	for col in obstacle.find_children("*", "CollisionShape3D", true, false):
+		col.set_deferred("disabled", true)
+	if obstacle is CollisionObject3D:
+		obstacle.set_deferred("collision_layer", 0)
+		obstacle.set_deferred("collision_mask", 0)
 	GameManager.add_people_power(3.0)
 	var tween: Tween = create_tween()
 	tween.tween_property(obstacle, "scale", Vector3(1.3, 0.2, 1.3), 0.1)
@@ -623,11 +654,17 @@ func _smash_obstacle(obstacle: Node3D) -> void:
 func _transmute_obstacle(obstacle: Node3D) -> void:
 	if not obstacle:
 		return
+	for col in obstacle.find_children("*", "CollisionShape3D", true, false):
+		col.set_deferred("disabled", true)
+	if obstacle is CollisionObject3D:
+		obstacle.set_deferred("collision_layer", 0)
+		obstacle.set_deferred("collision_mask", 0)
 	GameManager.add_people_power(4.0)
 	GameManager.add_govt_power(4.0)
 	var tween: Tween = create_tween()
 	tween.tween_property(obstacle, "scale", Vector3.ZERO, 0.2)
 	tween.tween_callback(obstacle.queue_free)
+
 
 
 func _pulse_shield_impact() -> void:
@@ -935,8 +972,8 @@ func _update_dynamic_camera(delta: float) -> void:
 # --- In-Run Power-Up Handlers & Juice Mechanics ---
 # ==============================================================================
 
-## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes).
-func activate_in_run_magnet(duration: float = 8.0) -> void:
+## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes for 3.5s).
+func activate_in_run_magnet(duration: float = 3.5) -> void:
 	in_run_magnet_timer = duration
 	if shield_mesh:
 		shield_mesh.visible = true
@@ -954,8 +991,8 @@ func activate_chrono_shield() -> void:
 		shield_mesh.material_override.emission = Color(0.25, 1.0, 0.45)
 
 
-## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush).
-func activate_chariot_boost(duration: float = 5.0) -> void:
+## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush for 2.5s).
+func activate_chariot_boost(duration: float = 2.5) -> void:
 	chariot_boost_timer = duration
 	camera_trauma = 0.35
 	if shield_mesh:
@@ -972,8 +1009,9 @@ func _trigger_shield_break(obstacle: Node3D) -> void:
 
 	_smash_obstacle(obstacle)
 	is_invulnerable = true
-	invulnerable_timer = 1.8
+	invulnerable_timer = 1.0
 	camera_trauma = 0.35
+
 	_spawn_floating_text("🛡️ AEGIS CRASH ABSORPTION!", Color(0.3, 1.0, 0.6))
 	if GameManager:
 		GameManager.decision_notification.emit("🛡️ AEGIS SHIELD: Collision absorbed safely!")

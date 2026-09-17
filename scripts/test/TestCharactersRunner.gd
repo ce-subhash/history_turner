@@ -122,10 +122,18 @@ func _ready() -> void:
 	assert(has_crowd, "Track chunk must feature cheering crowd spectators holding signs")
 	print("✔ Grand Capital Boulevard scenery (trees, lampposts, cheering crowd sidewalks, Parliament dome) verified.")
 
-	# 6. Obstacles: Moving Bull Cart (People) & Classical Stone Block (Ancient/Republic)
-	var cart_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.BULL_CART)
-	assert(cart_obs.get("speed") > 0.0, "Bull Cart must have active movement speed")
-	cart_obs.queue_free()
+	# 6. Obstacles: Static Three-Wood Campfire (People) & Classical Stone Block (Ancient/Republic)
+	var fire_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.WOOD_FIRE)
+	assert(fire_obs != null, "Three-Wood Campfire obstacle must be created")
+	var fire_body = fire_obs.find_child("FireBody", true, false)
+	assert(fire_body != null, "Three-Wood Campfire must have FireBody with obstacle collision")
+	assert(fire_obs.find_child("WoodFireSprite", true, false) != null, "Three-Wood Campfire must use 2.5D PNG sprite")
+	var fire_col = fire_body.find_child("CollisionShape3D", true, false)
+	if fire_col and fire_col.shape is BoxShape3D:
+		assert(fire_col.shape.size.y <= 0.6, "Campfire collider box height must be decreased for clean jumping")
+		assert(fire_col.shape.size.x <= 1.2, "Campfire collider box width must be decreased")
+	assert(fire_obs.is_in_group("obstacles") or fire_body.is_in_group("obstacles"), "Campfire or FireBody must be in obstacles group")
+	fire_obs.queue_free()
 
 	var stone_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.STONE_BLOCK)
 	assert(stone_obs != null, "Stone Block must be created")

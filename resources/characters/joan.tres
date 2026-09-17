@@ -8,10 +8,11 @@ character_name = "Joan of Arc"
 era_name = "Hundred Years' War (1429)"
 base_speed_modifier = 1.05
 active_ability_name = "Divine Aura"
-active_duration = 6.0
+active_duration = 3.5
 active_cooldown = 22.0
 passive_perk_type = "zealots_faith"
-ability_description = "Radiates holy light; turns incoming hazards into gold relics for 6s."
+ability_description = "Radiates holy light; turns incoming hazards into gold relics for 3.5s."
+
 passive_description = "Zealot's Faith: Automatically triggers a 4s emergency shield if either meter drops below 15%."
 theme_color = Color(0.95, 0.85, 0.2, 1)
 difficulty_rating = "Medium / Recovery"

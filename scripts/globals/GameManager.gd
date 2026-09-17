@@ -35,7 +35,7 @@ var govt_decay_modifier: float = 1.0
 # --- Phase 4: High-Risk Fever States ---
 const FEVER_THRESHOLD: float = 90.0
 const FEVER_RESET_THRESHOLD: float = 80.0
-const FEVER_DURATION: float = 8.0
+const FEVER_DURATION: float = 2.5
 
 var is_fever_active: bool = false
 var current_fever_type: String = "" # "peasant_revolution" or "divine_right"
