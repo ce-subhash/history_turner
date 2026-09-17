@@ -197,14 +197,55 @@ func _ready() -> void:
 	audio.play_sfx_gate()
 	audio.play_sfx_crash()
 	audio.play_sfx_void_fall()
-	print("✔ AudioManager singleton and sound effects verified.")
+	audio.play_sfx_close_call()
+	audio.play_sfx_powerup()
+	audio.play_sfx_shield_break()
+	audio.play_sfx_collect_fist(1.2)
+	print("✔ AudioManager singleton, new arcade SFX, and pitch-scaled chimes verified.")
 
-	# 10. Void Fall Death Detection
+	# 10. In-Run Power-Up System & Juice Mechanics
+	# Test Contact Shadow hiding in air
+	var active_shadow = player.find_child("ContactShadow", true, false)
+	assert(active_shadow != null, "Contact shadow must exist")
+	player.position.y = 1.8
+	player._update_procedural_animations(0.02)
+	assert(active_shadow.visible == false, "Contact shadow must hide while jumping in air")
+	player.position.y = 0.0
+	player._update_procedural_animations(0.02)
+	assert(active_shadow.visible == true, "Contact shadow must be visible when grounded")
+	print("✔ Subtle contact shadow & airborne hiding verified.")
+
+
+	# Test In-Run Chrono-Shield protection
+	player.activate_chrono_shield()
+	assert(player.has_chrono_shield == true, "Player must possess active Chrono-Shield")
+	var dummy_obs = track_mgr._create_obstacle(TrackManager.ObstacleCategory.STONE_BLOCK)
+	player._trigger_shield_break(dummy_obs)
+	assert(player.has_chrono_shield == false, "Shield must absorb collision and deplete")
+	assert(player.is_invulnerable == true, "Shield break must grant post-hit invulnerability")
+	print("✔ In-Run Chrono-Shield collision absorption verified.")
+
+	# Test In-Run Imperial Dash (Chariot Boost)
+	player.activate_chariot_boost(5.0)
+	assert(player.chariot_boost_timer > 0.0, "Imperial Dash must be active")
+	player._physics_process(0.02)
+	assert(player.velocity.z < -18.0, "Imperial Dash must supercharge forward velocity")
+	print("✔ In-Run Imperial Dash (Chariot Boost) super-speed verified.")
+
+	# Test Close Call near-miss trigger
+	var trauma_before = player.camera_trauma
+	player._trigger_close_call()
+	assert(player.camera_trauma > trauma_before, "Close Call must trigger camera trauma shake")
+	print("✔ Close Call near-miss mechanic, floating popup, and camera trauma verified.")
+
+	# 11. Void Fall Death Detection
 	player.is_invulnerable = false
+	player.chariot_boost_timer = 0.0
 	player.position = Vector3(8.0, -5.0, 0.0)
 	player._physics_process(0.02)
 	assert(GameManager.is_game_over, "Falling off road into void (Y < -4.0) must trigger Game Over")
 	print("✔ Void fall death boundary (Y < -4.0) verified.")
+
 
 	print("\n=========================================================================")
 	print("⭐⭐⭐ ALL CHIBI LEADER, BOULEVARD & REFERENCE 1 HUD TESTS PASSED! ⭐⭐⭐")

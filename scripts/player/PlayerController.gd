@@ -118,6 +118,18 @@ var tesla_magnet_timer: float = 0.0
 var zealot_emergency_triggered: bool = false
 var emergency_shield_timer: float = 0.0
 
+# In-Run Power-Up State
+var in_run_magnet_timer: float = 0.0
+var has_chrono_shield: bool = false
+var chariot_boost_timer: float = 0.0
+var invulnerable_timer: float = 0.0
+var was_on_floor_last_frame: bool = true
+
+# Juice & Game Feel State
+var camera_trauma: float = 0.0
+var landing_dip_offset: float = 0.0
+var close_call_history: Dictionary = {}
+
 # Pure Rear-View 2.5D Character Sprite & Lighting
 var character_sprite: Sprite3D = null
 var character_light: OmniLight3D = null
@@ -125,6 +137,7 @@ var active_character_name: String = "Chibi Leader"
 var run_anim_time: float = 0.0
 var banking_tilt: float = 0.0
 var dust_particles: CPUParticles3D = null
+
 
 # --- Node References ---
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
@@ -211,23 +224,28 @@ func _setup_dust_particles() -> void:
 
 
 func _setup_ability_visuals() -> void:
+	# Sleek horizontal ground aura ring instead of a giant obstructive sphere
 	shield_mesh = MeshInstance3D.new()
 	shield_mesh.name = "AbilityShield"
-	var sphere: SphereMesh = SphereMesh.new()
-	sphere.radius = 1.15
-	sphere.height = 2.3
-	shield_mesh.mesh = sphere
+	var ring: TorusMesh = TorusMesh.new()
+	ring.inner_radius = 0.52
+	ring.outer_radius = 0.70
+	ring.rings = 24
+	ring.ring_segments = 16
+	shield_mesh.mesh = ring
 
-	var shield_mat: StandardMaterial3D = StandardMaterial3D.new()
-	shield_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	shield_mat.albedo_color = Color(1.0, 0.85, 0.2, 0.35)
-	shield_mat.emission_enabled = true
-	shield_mat.emission = Color(1.0, 0.8, 0.2)
-	shield_mat.emission_energy_multiplier = 1.4
-	shield_mesh.material_override = shield_mat
-	shield_mesh.position = Vector3(0.0, 0.9, 0.0)
+	var aura_mat: StandardMaterial3D = StandardMaterial3D.new()
+	aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	aura_mat.albedo_color = Color(1.0, 0.85, 0.2, 0.65)
+	aura_mat.emission_enabled = true
+	aura_mat.emission = Color(1.0, 0.8, 0.2)
+	aura_mat.emission_energy_multiplier = 2.0
+	shield_mesh.material_override = aura_mat
+	shield_mesh.position = Vector3(0.0, 0.04, 0.0)
 	shield_mesh.visible = false
 	add_child(shield_mesh)
+
+
 
 
 func _input(event: InputEvent) -> void:
@@ -413,9 +431,23 @@ func _physics_process(delta: float) -> void:
 		emergency_shield_timer -= delta
 		if emergency_shield_timer <= 0.0:
 			is_invulnerable = false
-			shield_mesh.visible = false
 
-	# Forward Speed with momentary Ramp Boost
+	if invulnerable_timer > 0.0:
+		invulnerable_timer -= delta
+		if invulnerable_timer <= 0.0 and emergency_shield_timer <= 0.0 and chariot_boost_timer <= 0.0:
+			is_invulnerable = false
+
+	# Power-Up Countdown Timers
+	var chariot_speed_boost: float = 0.0
+	if chariot_boost_timer > 0.0:
+		chariot_boost_timer -= delta
+		chariot_speed_boost = 8.0
+		is_invulnerable = true
+
+	if in_run_magnet_timer > 0.0:
+		in_run_magnet_timer -= delta
+
+	# Forward Speed with momentary Ramp Boost & Chariot Boost
 	var speed_modifier: float = 1.0
 	if CharacterManager and CharacterManager.active_character:
 		speed_modifier = CharacterManager.active_character.base_speed_modifier
@@ -425,7 +457,7 @@ func _physics_process(delta: float) -> void:
 		boost = ramp_speed_bonus * (ramp_boost_timer / 2.5)
 		ramp_boost_timer = maxf(0.0, ramp_boost_timer - delta)
 
-	velocity.z = -(GameManager.current_speed * speed_modifier + boost)
+	velocity.z = -(GameManager.current_speed * speed_modifier + boost + chariot_speed_boost)
 
 	# Peasant Revolution Flight Mode: Glide smoothly at Y = 2.4m
 	if is_peasant_fever:
@@ -438,6 +470,15 @@ func _physics_process(delta: float) -> void:
 				velocity.y = 0.0
 
 	move_and_slide()
+
+	# Landing Impact Juice
+	var on_floor: bool = is_on_floor() or position.y <= 0.04
+	if on_floor and not was_on_floor_last_frame and not is_sliding:
+		landing_dip_offset = -0.06
+		camera_trauma = minf(camera_trauma + 0.16, 0.45)
+		if dust_particles:
+			dust_particles.restart()
+	was_on_floor_last_frame = on_floor
 
 	# Guaranteed road surface clamp: Player can NEVER sink below road while on track lanes
 	if abs(position.x) <= 5.5:
@@ -455,21 +496,23 @@ func _physics_process(delta: float) -> void:
 
 	_update_procedural_animations(delta)
 	_update_dynamic_camera(delta)
+	_check_close_calls(delta)
 
-	# Divine Right Artillery Barrage: Clears upcoming obstacles every 0.6s
+	# Divine Right Artillery Barrage: Clears upcoming hazards
 	if is_divine_fever:
 		artillery_timer -= delta
 		if artillery_timer <= 0.0:
 			artillery_timer = 0.6
 			_execute_artillery_strike()
 
-	# Process Active Magnetism (Harriet, Fever, or Tesla Watch)
-	if has_magnet_active or is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0:
+	# Process Active Magnetism (Harriet, Fever, Tesla Watch, or In-Run Magnet)
+	if has_magnet_active or is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0 or in_run_magnet_timer > 0.0:
 		if tesla_magnet_timer > 0.0:
 			tesla_magnet_timer -= delta
 		_process_magnetism(delta)
 
 	_check_collisions()
+
 
 
 ## Activates Tesla's Pocket Watch 3.0s magnetism burst.
@@ -515,8 +558,10 @@ func _check_collisions() -> void:
 			if is_sliding and (collider.name.begins_with("Obstacle_HighArch") or "HighArch" in collider.name):
 				continue
 
-			if is_peasant_fever:
+			# In-Run Chariot Boost or Peasant Fever: Smash right through!
+			if chariot_boost_timer > 0.0 or is_peasant_fever:
 				_smash_obstacle(collider as Node3D)
+				_spawn_floating_text("💥 SMASH! +50", Color(1.0, 0.85, 0.2))
 				continue
 
 			if is_invulnerable:
@@ -528,6 +573,12 @@ func _check_collisions() -> void:
 
 			if has_divine_aura:
 				_transmute_obstacle(collider as Node3D)
+				continue
+
+			# In-Run Chrono-Shield Protection: Absorbs hit and saves the run!
+			if has_chrono_shield:
+				has_chrono_shield = false
+				_trigger_shield_break(collider as Node3D)
 				continue
 
 			# Relic Perk: Cleopatra's Asp
@@ -543,6 +594,7 @@ func _check_collisions() -> void:
 				get_node("/root/AudioManager").play_sfx_crash()
 			GameManager.trigger_game_over(reason)
 			break
+
 
 
 ## Cleopatra's Asp: Emergency revival resetting meters to 50/50 with 3.5s invulnerability.
@@ -643,7 +695,9 @@ func _on_ability_deactivated(_character: Resource) -> void:
 	is_ghost_mode = false
 	has_magnet_active = false
 	if not is_peasant_fever and not is_divine_fever:
-		shield_mesh.visible = false
+		if is_instance_valid(shield_mesh):
+			shield_mesh.visible = false
+
 
 	if character_sprite:
 		var char_data = CHARACTER_SPRITES.get(active_character_name, CHARACTER_SPRITES["Julius Caesar"])
@@ -659,12 +713,12 @@ func _on_power_changed(people: float, govt: float) -> void:
 			zealot_emergency_triggered = true
 			emergency_shield_timer = 4.0
 			is_invulnerable = true
-			shield_mesh.visible = true
-			shield_mesh.material_override.albedo_color = Color(1.0, 0.3, 0.3, 0.5)
-			shield_mesh.material_override.emission = Color(1.0, 0.2, 0.2)
-			print("[Perk: Zealot's Faith] Emergency 4s Invincibility Shield activated!")
+			invulnerable_timer = 4.0
+			if GameManager:
+				GameManager.decision_notification.emit("⚔️ ZEALOT'S FAITH: Emergency 4s Invincibility!")
 		elif people >= 25.0 and govt >= 25.0:
 			zealot_emergency_triggered = false
+
 
 
 func _on_character_selected(character: Resource) -> void:
@@ -719,21 +773,22 @@ func _apply_character_visuals(character: Resource) -> void:
 	character_light.shadow_enabled = false
 	character_sprite.add_child(character_light)
 
-	# Soft ground contact shadow
+	# Subtle, small ground contact shadow (0.18 radius, 0.18 opacity)
 	var shadow_inst: MeshInstance3D = MeshInstance3D.new()
 	shadow_inst.name = "ContactShadow"
 	var shadow_mesh: CylinderMesh = CylinderMesh.new()
-	shadow_mesh.top_radius = 0.40
-	shadow_mesh.bottom_radius = 0.40
-	shadow_mesh.height = 0.02
+	shadow_mesh.top_radius = 0.18
+	shadow_mesh.bottom_radius = 0.18
+	shadow_mesh.height = 0.01
 	var shadow_mat: StandardMaterial3D = StandardMaterial3D.new()
-	shadow_mat.albedo_color = Color(0.06, 0.06, 0.10, 0.50)
+	shadow_mat.albedo_color = Color(0.04, 0.04, 0.06, 0.18)
 	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	shadow_mat.roughness = 1.0
 	shadow_inst.mesh = shadow_mesh
 	shadow_inst.material_override = shadow_mat
 	shadow_inst.position = Vector3(0.0, 0.02, 0.05)
 	visual_model.add_child(shadow_inst)
+
 
 
 ## Procedurally animates 2.5D sprite bobbing, multi-frame run cycle, banking, and state textures.
@@ -751,9 +806,27 @@ func _update_procedural_animations(delta: float) -> void:
 	banking_tilt = lerpf(banking_tilt, 0.0, 8.0 * delta)
 	character_sprite.rotation.z = banking_tilt
 
+	# Dynamic Contact Shadow: Only visible when grounded (height <= 0.15m) and not sliding
+	var contact_shadow = visual_model.get_node_or_null("ContactShadow")
+	if contact_shadow:
+		var is_grounded: bool = position.y <= 0.15 and not is_sliding and not GameManager.is_game_over
+		contact_shadow.visible = is_grounded
+		if is_grounded:
+			var s: float = 1.0 + sin(run_anim_time * 2.0) * 0.06
+			contact_shadow.scale = Vector3(s, 1.0, s)
+
+	# Rotate Ground Halo Ring
+	if is_instance_valid(shield_mesh) and shield_mesh.visible:
+		shield_mesh.rotate_y(delta * 4.0)
+
+	# Invulnerability sprite flicker
+	if invulnerable_timer > 0.0 and character_sprite:
+		character_sprite.modulate.a = 0.35 if fmod(Time.get_ticks_msec() * 0.015, 2.0) < 1.0 else 1.0
+
 	if GameManager.is_game_over:
 		character_sprite.rotation_degrees.x = lerpf(character_sprite.rotation_degrees.x, -25.0, 6.0 * delta)
 		return
+
 
 	# State 1: Peasant Revolution Fever Flight
 	if is_peasant_fever:
@@ -798,11 +871,13 @@ func _update_procedural_animations(delta: float) -> void:
 	var run_tex_h: float = float(current_run_tex.get_height()) if current_run_tex else 1024.0
 	character_sprite.pixel_size = DEFAULT_HEIGHT / run_tex_h
 
-	# Subtle athletic running bounce & hip sway
+	# Athletic running bounce & hip sway
 	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.05
 	character_sprite.position.y = base_y + vertical_bounce
 	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.03
 	character_sprite.rotation_degrees.x = -8.0
+
+
 
 
 func _on_game_over(_reason: String) -> void:
@@ -817,25 +892,154 @@ func _on_game_over(_reason: String) -> void:
 		shield_mesh.visible = false
 
 
-## Dynamically updates camera FOV, banking roll, footstep micro-bobbing, and dust particles.
+## Dynamically updates camera FOV, banking roll, footstep micro-bobbing, trauma shake, and dust.
 func _update_dynamic_camera(delta: float) -> void:
 	if not camera:
 		return
 
-	# 1. Dynamic Speed FOV: widen FOV from 72° to 84° as player accelerates
+	# 1. Dynamic Speed FOV: widen FOV from 68° to 80° (up to 84° during Chariot Boost)
 	var speed_ratio: float = clampf((GameManager.current_speed - 12.0) / 16.0, 0.0, 1.0)
-	var target_fov: float = lerpf(72.0, 84.0, speed_ratio)
+	var target_fov: float = lerpf(68.0, 80.0, speed_ratio)
+	if chariot_boost_timer > 0.0:
+		target_fov += 5.0
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
-	# 2. Footstep micro-bobbing synchronized with running stride around elevated base y=3.8
+	# 2. Footstep micro-bobbing synchronized with running stride and landing dip
+	var base_cam_y: float = 3.8 + landing_dip_offset
+	landing_dip_offset = lerpf(landing_dip_offset, 0.0, 8.0 * delta)
+
 	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
-		camera.position.y = 3.8 + sin(run_anim_time * 2.0) * 0.025
+		camera.position.y = base_cam_y + sin(run_anim_time * 2.0) * 0.025
 	else:
-		camera.position.y = lerpf(camera.position.y, 3.8, 6.0 * delta)
+		camera.position.y = lerpf(camera.position.y, base_cam_y, 6.0 * delta)
 
 	# 3. Dynamic banking roll when switching lanes
 	camera.rotation.z = lerpf(camera.rotation.z, banking_tilt * 0.45, 8.0 * delta)
 
-	# 4. Dust particles emission
+	# 4. Camera Trauma Shake (Close calls, collisions, boosts)
+	if camera_trauma > 0.0:
+		var shake_amount = camera_trauma * camera_trauma
+		camera.h_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.14
+		camera.v_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.14
+		camera_trauma = maxf(0.0, camera_trauma - delta * 2.2)
+	else:
+		camera.h_offset = 0.0
+		camera.v_offset = 0.0
+
+	# 5. Dust particles emission
 	if dust_particles:
 		dust_particles.emitting = (is_on_floor() or position.y < 0.15) and not is_peasant_fever and not GameManager.is_game_over
+
+
+# ==============================================================================
+# --- In-Run Power-Up Handlers & Juice Mechanics ---
+# ==============================================================================
+
+## Activates In-Run Royal Magnet (attracts tokens from all 3 lanes).
+func activate_in_run_magnet(duration: float = 8.0) -> void:
+	in_run_magnet_timer = duration
+	if shield_mesh:
+		shield_mesh.visible = true
+		shield_mesh.material_override.albedo_color = Color(0.2, 0.8, 1.0, 0.7)
+		shield_mesh.material_override.emission = Color(0.2, 0.85, 1.0)
+
+
+## Activates Chrono-Shield (absorbs 1 collision).
+func activate_chrono_shield() -> void:
+	has_chrono_shield = true
+	_spawn_floating_text("🛡️ AEGIS READY!", Color(0.3, 1.0, 0.6))
+	if shield_mesh:
+		shield_mesh.visible = true
+		shield_mesh.material_override.albedo_color = Color(0.25, 1.0, 0.5, 0.7)
+		shield_mesh.material_override.emission = Color(0.25, 1.0, 0.45)
+
+
+## Activates Imperial Dash / Chariot Boost (+8 m/s hyper-speed rush).
+func activate_chariot_boost(duration: float = 5.0) -> void:
+	chariot_boost_timer = duration
+	camera_trauma = 0.35
+	if shield_mesh:
+		shield_mesh.visible = true
+		shield_mesh.material_override.albedo_color = Color(1.0, 0.85, 0.2, 0.85)
+		shield_mesh.material_override.emission = Color(1.0, 0.85, 0.3)
+
+
+## Smashes an obstacle safely when shield absorbs impact.
+func _trigger_shield_break(obstacle: Node3D) -> void:
+	has_chrono_shield = false
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_shield_break()
+
+	_smash_obstacle(obstacle)
+	is_invulnerable = true
+	invulnerable_timer = 1.8
+	camera_trauma = 0.35
+	_spawn_floating_text("🛡️ AEGIS CRASH ABSORPTION!", Color(0.3, 1.0, 0.6))
+	if GameManager:
+		GameManager.decision_notification.emit("🛡️ AEGIS SHIELD: Collision absorbed safely!")
+	if shield_mesh and not (in_run_magnet_timer > 0.0 or chariot_boost_timer > 0.0):
+		shield_mesh.visible = false
+
+
+## Evaluates close-call / near-miss brush with obstacles along the road.
+func _check_close_calls(_delta: float) -> void:
+	if GameManager.is_game_over:
+		return
+
+	for node in get_tree().root.find_children("Obstacle_*", "StaticBody3D", true, false):
+		var obs = node as StaticBody3D
+		if not obs or not is_instance_valid(obs):
+			continue
+
+		var obs_id: int = obs.get_instance_id()
+		if close_call_history.has(obs_id):
+			continue
+
+		var dz: float = obs.global_position.z - global_position.z
+		if dz >= -1.0 and dz <= 1.2:
+			var dx: float = absf(obs.global_position.x - global_position.x)
+			var dy: float = global_position.y - obs.global_position.y
+
+			var is_close: bool = false
+			if dx >= 1.3 and dx <= 2.4 and absf(dy) < 0.9:
+				is_close = true
+			elif dx < 1.0 and not is_on_floor() and dy >= 0.70 and dy <= 1.6:
+				is_close = true
+
+			if is_close:
+				close_call_history[obs_id] = true
+				_trigger_close_call()
+
+
+func _trigger_close_call() -> void:
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_close_call()
+	camera_trauma = minf(camera_trauma + 0.22, 0.55)
+	GameManager.add_people_power(1.5)
+	GameManager.add_govt_power(1.5)
+	_spawn_floating_text("⚡ CLOSE CALL! +50", Color(1.0, 0.9, 0.2))
+
+
+func trigger_combo_popup(combo: int) -> void:
+	camera_trauma = minf(camera_trauma + 0.15, 0.4)
+	_spawn_floating_text("🔥 %dx STREAK!" % combo, Color(1.0, 0.45, 0.1))
+
+
+## Procedurally pops a floating 3D text label above the player.
+func _spawn_floating_text(text: String, col: Color) -> void:
+	var label = Label3D.new()
+	label.text = text
+	label.font_size = 28
+	label.outline_size = 6
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 1.0)
+	label.modulate = col
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 14
+	label.position = Vector3(randf_range(-0.25, 0.25), 1.9, 0.0)
+	add_child(label)
+
+	var tween = create_tween()
+	tween.tween_property(label, "position:y", label.position.y + 1.2, 0.45)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(label.queue_free)

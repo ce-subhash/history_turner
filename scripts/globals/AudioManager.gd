@@ -20,6 +20,9 @@ var snd_gate: AudioStreamWAV
 var snd_crash: AudioStreamWAV
 var snd_void_fall: AudioStreamWAV
 var snd_ability: AudioStreamWAV
+var snd_close_call: AudioStreamWAV
+var snd_powerup: AudioStreamWAV
+var snd_shield_break: AudioStreamWAV
 var snd_bgm_loop: AudioStreamWAV
 
 var bgm_enabled: bool = true
@@ -59,6 +62,9 @@ func _synthesize_all_audio() -> void:
 	snd_crash = _create_crash_sound()
 	snd_void_fall = _create_void_fall_sound()
 	snd_ability = _create_ability_sound()
+	snd_close_call = _create_close_call_sound()
+	snd_powerup = _create_powerup_sound()
+	snd_shield_break = _create_shield_break_sound()
 	snd_bgm_loop = _create_music_loop()
 
 
@@ -82,16 +88,16 @@ func play_sfx_slide() -> void:
 	_play_sound(snd_slide)
 
 
-func play_sfx_collect_fist() -> void:
+func play_sfx_collect_fist(pitch: float = 1.0) -> void:
 	if not sfx_enabled:
 		return
-	_play_sound(snd_fist)
+	_play_sound(snd_fist, pitch)
 
 
-func play_sfx_collect_crown() -> void:
+func play_sfx_collect_crown(pitch: float = 1.0) -> void:
 	if not sfx_enabled:
 		return
-	_play_sound(snd_crown)
+	_play_sound(snd_crown, pitch)
 
 
 func play_sfx_gate() -> void:
@@ -118,13 +124,33 @@ func play_sfx_ability() -> void:
 	_play_sound(snd_ability)
 
 
-func _play_sound(stream: AudioStreamWAV) -> void:
+func play_sfx_close_call() -> void:
+	if not sfx_enabled:
+		return
+	_play_sound(snd_close_call, randf_range(0.95, 1.1))
+
+
+func play_sfx_powerup() -> void:
+	if not sfx_enabled:
+		return
+	_play_sound(snd_powerup)
+
+
+func play_sfx_shield_break() -> void:
+	if not sfx_enabled:
+		return
+	_play_sound(snd_shield_break)
+
+
+func _play_sound(stream: AudioStreamWAV, pitch: float = 1.0) -> void:
 	if not stream or sfx_players.is_empty():
 		return
 	var player = sfx_players[current_sfx_channel]
 	current_sfx_channel = (current_sfx_channel + 1) % SFX_CHANNEL_COUNT
+	player.pitch_scale = pitch
 	player.stream = stream
 	player.play()
+
 
 
 func _start_bgm() -> void:
@@ -366,3 +392,65 @@ func _create_music_loop() -> AudioStreamWAV:
 		samples[i] = clampf((pad * chord_env * 0.65 + sub_bass * 0.15) * swell * 0.55, -0.85, 0.85)
 
 	return _create_stream(samples, sr, true)
+
+
+## High-speed close call bullet-whiz / whoosh sound
+func _create_close_call_sound() -> AudioStreamWAV:
+	var sr = 44100
+	var dur = 0.35
+	var count = int(sr * dur)
+	var samples: Array[float] = []
+	samples.resize(count)
+
+	for i in range(count):
+		var t = float(i) / float(sr)
+		var progress = t / dur
+		var env = sin(progress * PI)
+		var freq = lerpf(1200.0, 300.0, pow(progress, 1.2))
+		var tone = sin(2.0 * PI * freq * t) * 0.5
+		var noise = (randf() * 2.0 - 1.0) * 0.5 * (1.0 - progress)
+		samples[i] = (tone + noise) * env * 0.95
+
+	return _create_stream(samples, sr)
+
+
+## Triumphant ascending power-up collection arpeggio
+func _create_powerup_sound() -> AudioStreamWAV:
+	var sr = 44100
+	var dur = 0.55
+	var count = int(sr * dur)
+	var samples: Array[float] = []
+	samples.resize(count)
+	var notes = [440.0, 554.37, 659.25, 880.0, 1108.73] # A major triumphant arpeggio
+
+	for i in range(count):
+		var t = float(i) / float(sr)
+		var note_idx = clampi(int(t / (dur / float(notes.size()))), 0, notes.size() - 1)
+		var note_freq = notes[note_idx]
+		var sub_t = fmod(t, dur / float(notes.size()))
+		var env = exp(-sub_t * 12.0)
+		var tone = sin(2.0 * PI * note_freq * t) + sin(2.0 * PI * note_freq * 2.0 * t) * 0.3
+		samples[i] = tone * env * 0.85
+
+	return _create_stream(samples, sr)
+
+
+## Crisp crystal/glass shield shatter sound
+func _create_shield_break_sound() -> AudioStreamWAV:
+	var sr = 44100
+	var dur = 0.45
+	var count = int(sr * dur)
+	var samples: Array[float] = []
+	samples.resize(count)
+
+	for i in range(count):
+		var t = float(i) / float(sr)
+		var progress = t / dur
+		var env = exp(-progress * 6.5)
+		var chime1 = sin(2.0 * PI * 1760.0 * t) * 0.4
+		var chime2 = sin(2.0 * PI * 2637.0 * t) * 0.3
+		var crackle = (randf() * 2.0 - 1.0) * exp(-progress * 18.0) * 0.5
+		samples[i] = (chime1 + chime2 + crackle) * env * 0.9
+
+	return _create_stream(samples, sr)
+

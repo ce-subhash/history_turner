@@ -77,6 +77,17 @@ func trigger_active_ability() -> bool:
 	return true
 
 
+## Refunds ability cooldown timer by a fraction (e.g. 0.35 = 35% cooldown refund).
+func charge_ability(fraction: float = 0.35) -> void:
+	if not active_character or is_ability_active:
+		return
+	var reduction: float = active_character.active_cooldown * fraction
+	cooldown_timer = maxf(0.0, cooldown_timer - reduction)
+	cooldown_updated.emit(cooldown_timer, active_character.active_cooldown)
+	print("[CharacterManager] Charged ability by %.0f%%. Remaining cooldown: %.1fs" % [fraction * 100.0, cooldown_timer])
+
+
+
 func _deactivate_ability() -> void:
 	if not is_ability_active:
 		return

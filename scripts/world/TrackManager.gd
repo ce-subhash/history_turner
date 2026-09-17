@@ -16,6 +16,8 @@ const BossEncounterScript = preload("res://scripts/world/BossEncounter.gd")
 const TemporalPortalScript = preload("res://scripts/world/TemporalPortal.gd")
 const MovingObstacleScript = preload("res://scripts/world/MovingObstacle.gd")
 const JumpRampScript = preload("res://scripts/world/JumpRamp.gd")
+const PowerUpPickupScript = preload("res://scripts/world/PowerUpPickup.gd")
+
 
 # 3D GLB Props
 const BULL_CART_SCN = preload("res://assets/sprites/props/bull_cart.glb")
@@ -221,6 +223,8 @@ func _spawn_chunk_at(z_pos: float, allow_content: bool, is_decision_chunk: bool,
 	elif allow_content:
 		_populate_chunk_obstacles(chunk)
 		_populate_chunk_collectibles(chunk)
+		_maybe_spawn_powerup(chunk)
+
 
 
 func _spawn_temporal_portal(chunk: Node3D) -> void:
@@ -423,7 +427,28 @@ func _populate_chunk_collectibles(chunk: Node3D) -> void:
 		container.add_child(token)
 
 
+## Periodically spawns a game-changing powerup pickup (Magnet, Shield, or Imperial Dash).
+func _maybe_spawn_powerup(chunk: Node3D) -> void:
+	# Spawn once every 6 chunks (~180m) to keep them special and impactful
+	if chunks_spawned_count < 4 or (chunks_spawned_count % 6 != 0):
+		return
+
+	var container: Node3D = chunk.get_node("DynamicElements")
+	var powerup = PowerUpPickupScript.new()
+	var types = [
+		PowerUpPickupScript.PowerUpType.MAGNET,
+		PowerUpPickupScript.PowerUpType.SHIELD,
+		PowerUpPickupScript.PowerUpType.BOOST
+	]
+
+	powerup.powerup_type = types.pick_random()
+	var lane_x: float = LANES.pick_random()
+	powerup.position = Vector3(lane_x, 1.0, -CHUNK_LENGTH * 0.5)
+	container.add_child(powerup)
+
+
 func _create_collectible(type: int) -> Area3D:
+
 	var token: Area3D = CollectibleScript.new()
 	token.set("type", type)
 
