@@ -55,8 +55,8 @@ const CHARACTER_SPRITES = {
 		"light_color": Color(1.0, 0.78, 0.35),
 		"light_energy": 3.8,
 		"light_range": 16.0,
-		"light_offset": Vector3(0.35, 0.85, -0.2),
-		"base_y": 0.84
+		"light_offset": Vector3(-0.35, 0.85, -0.2),
+		"base_y": 0.80
 	}
 }
 
