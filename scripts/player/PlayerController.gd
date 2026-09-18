@@ -921,7 +921,7 @@ func _update_procedural_animations(delta: float) -> void:
 		return
 
 	# State 4: Multi-Frame Ground Running Stride Cycle (Pure Rear View)
-	var run_freq: float = 11.0 * (GameManager.current_speed / 12.0)
+	var run_freq: float = 8.5 * (GameManager.current_speed / 12.0)
 	run_anim_time += delta * run_freq
 
 	# Alternate between right stride (run1) and left stride (run2) based on stride cycle
@@ -932,10 +932,10 @@ func _update_procedural_animations(delta: float) -> void:
 	var run_tex_h: float = float(current_run_tex.get_height()) if current_run_tex else 1024.0
 	character_sprite.pixel_size = DEFAULT_HEIGHT / run_tex_h
 
-	# Athletic running bounce & hip sway
-	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.05
+	# Subtle, grounded running footstep bob (steady head & body, zero lateral sway)
+	var vertical_bounce: float = abs(sin(run_anim_time)) * 0.02
 	character_sprite.position.y = base_y + vertical_bounce
-	character_sprite.position.x = sin(run_anim_time * 0.5) * 0.03
+	character_sprite.position.x = 0.0
 	character_sprite.rotation_degrees.x = -8.0
 
 
