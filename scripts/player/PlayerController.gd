@@ -951,17 +951,22 @@ func _update_dynamic_camera(delta: float) -> void:
 		target_fov += 4.0
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
-	# 2. Ground-stabilized camera: Keeps camera height steady during jumps
-	# Compensates for player's vertical jump position.y so runner visibly leaps into frame
-	# while boulevard, obstacles, and horizon dome remain rock-solid and stable.
+	# 2. Elevated Jump Sightline Camera:
+	# Lifts camera world height up with the jump so player can look cleanly OVER the runner's head,
+	# with a subtle downward pitch tilt to provide clear visibility of upcoming track & obstacles.
 	var base_cam_y: float = 2.85 + landing_dip_offset
 	landing_dip_offset = lerpf(landing_dip_offset, 0.0, 8.0 * delta)
 
-	var target_cam_y: float = base_cam_y - position.y * 0.85
+	# Only offset 0.25 of position.y, so camera world height rises by 0.75 * position.y during jumps
+	var target_cam_y: float = base_cam_y - position.y * 0.25
 	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
 		camera.position.y = target_cam_y + sin(run_anim_time * 2.0) * 0.025
 	else:
 		camera.position.y = lerpf(camera.position.y, target_cam_y, 14.0 * delta)
+
+	# Dynamic pitch tilt looking over head during jumps
+	var target_pitch_deg: float = -18.0 - clampf(position.y * 2.5, 0.0, 4.5)
+	camera.rotation_degrees.x = lerpf(camera.rotation_degrees.x, target_pitch_deg, 10.0 * delta)
 
 	# 3. Dynamic banking roll when switching lanes
 	camera.rotation.z = lerpf(camera.rotation.z, banking_tilt * 0.45, 8.0 * delta)
