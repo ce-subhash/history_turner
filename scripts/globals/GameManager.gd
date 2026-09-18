@@ -9,6 +9,7 @@ signal game_restarted()
 signal power_changed(people: float, govt: float)
 signal decision_notification(text: String)
 signal coins_updated(people_coins: int, govt_coins: int)
+signal collectible_picked_up(type: int, world_position: Vector3)
 
 # Phase 4 Signals
 signal fever_state_started(fever_type: String, duration: float)

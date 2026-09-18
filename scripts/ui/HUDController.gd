@@ -14,7 +14,13 @@ class_name HUDController
 @onready var speed_label: Label = get_node_or_null("TopBar/HBoxContainer/CenterContainer/SpeedLabel")
 
 # Reference 1 Visual Elements
+const TOKEN_HEART_TEX = preload("res://assets/sprites/props/token_heart.png")
+const TOKEN_TEMPLE_TEX = preload("res://assets/sprites/props/token_temple.png")
+const CollectibleScript = preload("res://scripts/world/Collectible.gd")
+
 @onready var balance_needle: Label = get_node_or_null("TopBar/HBoxContainer/CenterContainer/BalanceWidget/NeedleTrack/Needle")
+@onready var people_badge: PanelContainer = get_node_or_null("TopBar/HBoxContainer/PeopleBadge")
+@onready var govt_badge: PanelContainer = get_node_or_null("TopBar/HBoxContainer/GovtBadge")
 @onready var people_count_label: Label = get_node_or_null("TopBar/HBoxContainer/PeopleBadge/HBox/VBox/PeopleCount")
 @onready var govt_count_label: Label = get_node_or_null("TopBar/HBoxContainer/GovtBadge/HBox/VBox/GovtCount")
 @onready var pause_button: Button = get_node_or_null("TopBar/HBoxContainer/PauseButton")
@@ -89,6 +95,8 @@ func _ready() -> void:
 		GameManager.power_changed.connect(_on_power_changed)
 		if GameManager.has_signal("coins_updated"):
 			GameManager.coins_updated.connect(_on_coins_updated)
+		if GameManager.has_signal("collectible_picked_up"):
+			GameManager.collectible_picked_up.connect(_on_collectible_picked_up)
 		GameManager.decision_notification.connect(_on_decision_notification)
 		GameManager.game_over.connect(_on_game_over)
 		GameManager.fever_state_started.connect(_on_fever_started)
@@ -225,6 +233,73 @@ func _on_coins_updated(people_coins: int, govt_coins: int) -> void:
 		people_count_label.text = str(people_coins)
 	if govt_count_label:
 		govt_count_label.text = str(govt_coins)
+
+
+## Spawns a tiny 2D flying particle (22x22px) that smoothly flies from contact pos to top score badge.
+func _on_collectible_picked_up(type: int, world_pos: Vector3) -> void:
+	var is_people: bool = (type == CollectibleScript.CollectibleType.PEOPLE_FIST)
+
+	# Determine start screen position from 3D camera
+	var cam: Camera3D = get_viewport().get_camera_3d() if get_viewport() else null
+	var start_pos: Vector2
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size if get_viewport() else Vector2(720, 1280)
+
+	if cam and not cam.is_position_behind(world_pos):
+		start_pos = cam.unproject_position(world_pos)
+		start_pos.x = clampf(start_pos.x, 20.0, vp_size.x - 20.0)
+		start_pos.y = clampf(start_pos.y, 40.0, vp_size.y - 40.0)
+	else:
+		start_pos = Vector2(vp_size.x * 0.5, vp_size.y * 0.70)
+
+	# Determine target badge position (PeopleBadge on left, GovtBadge on right)
+	var target_badge: PanelContainer = people_badge if is_people else govt_badge
+	var target_pos: Vector2
+	if target_badge and is_instance_valid(target_badge):
+		target_pos = target_badge.global_position + target_badge.size * 0.5
+	else:
+		target_pos = Vector2(100.0, 50.0) if is_people else Vector2(vp_size.x - 100.0, 50.0)
+
+	# Spawn tiny, sleek 2D flying icon (22x22px)
+	var flying_icon: TextureRect = TextureRect.new()
+	flying_icon.name = "FlyingPoint"
+	flying_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flying_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	flying_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	flying_icon.texture = TOKEN_HEART_TEX if is_people else TOKEN_TEMPLE_TEX
+	flying_icon.custom_minimum_size = Vector2(22, 22)
+	flying_icon.size = Vector2(22, 22)
+	flying_icon.pivot_offset = Vector2(11, 11)
+	flying_icon.position = start_pos - Vector2(11, 11)
+	flying_icon.scale = Vector2(0.4, 0.4)
+	add_child(flying_icon)
+
+	# Quick pop-in, then graceful flight trajectory to the top badge
+	var tween: Tween = create_tween()
+	tween.tween_property(flying_icon, "scale", Vector2(1.0, 1.0), 0.05).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+	var move_tween: Tween = create_tween().set_parallel(true)
+	# Lateral travel
+	move_tween.tween_property(flying_icon, "position:x", target_pos.x - 11.0, 0.30).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	# Upward travel with acceleration toward top
+	move_tween.tween_property(flying_icon, "position:y", target_pos.y - 11.0, 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Shrink slightly into the badge so it deposits cleanly
+	move_tween.tween_property(flying_icon, "scale", Vector2(0.60, 0.60), 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+	# Upon arrival: trigger tactile micro-bounce on the badge and clean up
+	move_tween.chain().tween_callback(func():
+		_punch_badge(target_badge)
+		if is_instance_valid(flying_icon):
+			flying_icon.queue_free()
+	)
+
+
+func _punch_badge(badge: PanelContainer) -> void:
+	if not badge or not is_instance_valid(badge):
+		return
+	badge.pivot_offset = badge.size * 0.5
+	var pt: Tween = create_tween()
+	pt.tween_property(badge, "scale", Vector2(1.14, 1.14), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pt.tween_property(badge, "scale", Vector2(1.0, 1.0), 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 
 
 func _update_meter_visuals(people: float, govt: float) -> void:

@@ -43,6 +43,16 @@ func _on_body_entered(body: Node3D) -> void:
 		return
 
 	is_collected = true
+	var collect_pos: Vector3 = global_position if is_inside_tree() else position
+
+	# Disable collision immediately
+	set_deferred("monitoring", false)
+	for child in get_children():
+		if child is CollisionShape3D:
+			child.set_deferred("disabled", true)
+
+	# Immediately vanish 3D model/sprite from the track
+	visible = false
 
 	# Calculate ascending musical pitch and combo streak
 	var now: float = Time.get_ticks_msec() / 1000.0
@@ -64,16 +74,16 @@ func _on_body_entered(body: Node3D) -> void:
 	# Apply political balance bonus and audio
 	if type == CollectibleType.PEOPLE_FIST:
 		GameManager.add_people_power(5.0)
-		if has_node("/root/AudioManager"):
+		if is_inside_tree() and has_node("/root/AudioManager"):
 			get_node("/root/AudioManager").play_sfx_collect_fist(pitch)
 	else:
 		GameManager.add_govt_power(5.0)
-		if has_node("/root/AudioManager"):
+		if is_inside_tree() and has_node("/root/AudioManager"):
 			get_node("/root/AudioManager").play_sfx_collect_crown(pitch)
 
-	# Smooth pickup pop animation before queue_free
-	var tween: Tween = create_tween()
-	tween.tween_property(self, "scale", Vector3(1.6, 1.6, 1.6), 0.15)
-	tween.parallel().tween_property(self, "position:y", position.y + 0.8, 0.15)
-	tween.tween_callback(queue_free)
+	# Emit signal for sleek 2D flying particle to the top score counter
+	if GameManager:
+		GameManager.collectible_picked_up.emit(type, collect_pos)
+
+	queue_free()
 

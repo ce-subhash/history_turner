@@ -159,13 +159,19 @@ func _ready() -> void:
 
 	# 7. Collectibles: Heart (People) & Temple (Govt) Tokens
 	var heart_token = track_mgr._create_collectible(0)
+	main_inst.add_child(heart_token)
 	assert(heart_token.find_child("CollectibleSprite", true, false) != null, "Heart token must have visual sprite")
-	heart_token.queue_free()
+	heart_token._on_body_entered(player)
+	assert(heart_token.visible == false, "Heart token must disappear immediately upon contact")
+	assert(heart_token.is_collected == true, "Heart token must be marked collected")
 
 	var temple_token = track_mgr._create_collectible(1)
+	main_inst.add_child(temple_token)
 	assert(temple_token.find_child("CollectibleSprite", true, false) != null, "Temple token must have visual sprite")
-	temple_token.queue_free()
-	print("✔ Collectibles (Red Heart People tokens & Blue Temple Govt tokens) verified.")
+	temple_token._on_body_entered(player)
+	assert(temple_token.visible == false, "Temple token must disappear immediately upon contact")
+	assert(temple_token.is_collected == true, "Temple token must be marked collected")
+	print("✔ Collectibles (Red Heart & Blue Temple) vanish immediately upon contact and trigger flying score animations.")
 
 	# 7b. Pure Coin Accumulation & Zero Meter Death Verification
 	GameManager.reset_state()
