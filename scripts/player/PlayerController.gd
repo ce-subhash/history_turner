@@ -32,7 +32,7 @@ const CHARACTER_SPRITES = {
 		"light_energy": 2.2,
 		"light_range": 10.0,
 		"light_offset": Vector3(0.0, 1.2, 0.1),
-		"base_y": 0.84
+		"base_y": 0.80
 	},
 	"Joan of Arc": {
 		"run1": preload("res://assets/sprites/characters/joan_rear_run1.png"),
