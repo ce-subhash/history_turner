@@ -317,13 +317,13 @@ func _create_track_chunk() -> Node3D:
 	# 3. Yellow and Black Striped Curbs
 	for side in [-1.0, 1.0]:
 		var curb_x: float = side * (ROAD_WIDTH * 0.5 + 0.18)
-		for s in range(10):
+		for s in range(5):
 			var curb_seg: MeshInstance3D = MeshInstance3D.new()
 			var c_box: BoxMesh = BoxMesh.new()
-			c_box.size = Vector3(0.36, 0.28, 3.0)
+			c_box.size = Vector3(0.36, 0.28, 6.0)
 			c_box.material = curb_yellow_material if s % 2 == 0 else curb_black_material
 			curb_seg.mesh = c_box
-			curb_seg.position = Vector3(curb_x, 0.10, -(s * 3.0 + 1.5))
+			curb_seg.position = Vector3(curb_x, 0.10, -(s * 6.0 + 3.0))
 			chunk.add_child(curb_seg)
 
 	# 4. Sidewalks on Left and Right
@@ -469,26 +469,18 @@ func _create_collectible(type: int) -> Area3D:
 	var sprite: Sprite3D = Sprite3D.new()
 	sprite.name = "CollectibleSprite"
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.shaded = false
 	sprite.alpha_cut = Sprite3D.ALPHA_CUT_DISABLED
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sprite.pixel_size = 0.85 / 1024.0
 
-	var light: OmniLight3D = OmniLight3D.new()
-	light.omni_range = 5.0
-	light.omni_attenuation = 1.3
-
 	if type == CollectibleScript.CollectibleType.PEOPLE_FIST:
 		sprite.texture = TOKEN_HEART_TEX
-		light.light_color = Color(1.0, 0.22, 0.28)
-		light.light_energy = 2.4
 	else:
 		sprite.texture = TOKEN_TEMPLE_TEX
-		light.light_color = Color(0.15, 0.70, 1.0)
-		light.light_energy = 2.4
 
 	token.add_child(sprite)
-	token.add_child(light)
 	return token
 
 
@@ -508,7 +500,7 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.6, 0.82, 0.5)
+			box.size = Vector3(1.6, 0.82, 0.75)
 			col.shape = box
 			col.position = Vector3(0.0, 0.41, 0.0)
 			body.add_child(col)
@@ -521,8 +513,8 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			sprite.pixel_size = 1.6 / 1024.0
 			sprite.position = Vector3(0.0, 0.70, 0.0)
-			sprite.rotation_degrees = Vector3.ZERO
-			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			sprite.rotation_degrees = Vector3(-18.0, 0.0, 0.0)
+			sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 			body.add_child(sprite)
 
 			return body
@@ -535,7 +527,7 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.8, 0.80, 0.3)
+			box.size = Vector3(1.8, 0.80, 0.75)
 			col.shape = box
 			col.position = Vector3(0.0, 0.40, 0.0)
 			body.add_child(col)
@@ -548,22 +540,9 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 			sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			sprite.pixel_size = 1.75 / 1024.0
 			sprite.position = Vector3(0.0, 0.88, 0.0)
+			sprite.rotation_degrees = Vector3(-18.0, 0.0, 0.0)
+			sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 			body.add_child(sprite)
-
-			# Red and Blue emergency flashing lights
-			var red_siren: OmniLight3D = OmniLight3D.new()
-			red_siren.light_color = Color(1.0, 0.15, 0.15)
-			red_siren.light_energy = 3.2
-			red_siren.omni_range = 4.5
-			red_siren.position = Vector3(-0.45, 1.45, 0.1)
-			body.add_child(red_siren)
-
-			var blue_siren: OmniLight3D = OmniLight3D.new()
-			blue_siren.light_color = Color(0.15, 0.45, 1.0)
-			blue_siren.light_energy = 3.2
-			blue_siren.omni_range = 4.5
-			blue_siren.position = Vector3(0.45, 1.45, 0.1)
-			body.add_child(blue_siren)
 
 			return body
 
@@ -575,7 +554,7 @@ func _create_obstacle(category: ObstacleCategory) -> Node3D:
 
 			var col: CollisionShape3D = CollisionShape3D.new()
 			var box: BoxShape3D = BoxShape3D.new()
-			box.size = Vector3(1.6, 0.80, 0.3)
+			box.size = Vector3(1.6, 0.80, 0.75)
 			col.shape = box
 			col.position = Vector3(0.0, 0.40, 0.0)
 			body.add_child(col)

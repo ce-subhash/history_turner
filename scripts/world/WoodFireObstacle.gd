@@ -29,7 +29,7 @@ func _build_campfire_structure() -> void:
 	if has_node("FireBody"):
 		return
 
-	# 1. Physics Body & Decreased Jump-Friendly Collision Box
+	# 1. Physics Body & Jump-Friendly Collision Box
 	var body = StaticBody3D.new()
 	body.name = "FireBody"
 	body.add_to_group("obstacles")
@@ -37,13 +37,13 @@ func _build_campfire_structure() -> void:
 
 	var col = CollisionShape3D.new()
 	var box = BoxShape3D.new()
-	# Decreased collider box: 1.0m width (narrower than lane), 0.52m height (very low, effortless jump), 0.35m depth (thin Z profile)
-	box.size = Vector3(1.0, 0.52, 0.35)
+	# Safe collision box: 1.0m width, 0.52m height, 0.70m depth along track to prevent tunneling
+	box.size = Vector3(1.0, 0.52, 0.70)
 	col.shape = box
 	col.position = Vector3(0.0, 0.26, 0.0)
 	body.add_child(col)
 
-	# 2. Stylized 2.5D Campfire PNG Sprite
+	# 2. Stylized 2.5D Campfire PNG Sprite (Tilted to match -18 deg camera pitch)
 	fire_sprite = Sprite3D.new()
 	fire_sprite.name = "WoodFireSprite"
 	fire_sprite.texture = WOOD_FIRE_TEX
@@ -52,8 +52,8 @@ func _build_campfire_structure() -> void:
 	fire_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	fire_sprite.pixel_size = 1.25 / 1024.0
 	fire_sprite.position = Vector3(0.0, 0.52, 0.0)
-	fire_sprite.rotation_degrees = Vector3.ZERO
-	fire_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	fire_sprite.rotation_degrees = Vector3(-18.0, 0.0, 0.0)
+	fire_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	body.add_child(fire_sprite)
 
 	# 3. Dynamic Flickering Campfire OmniLight3D

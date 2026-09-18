@@ -110,14 +110,6 @@ var is_peasant_fever: bool = false
 var is_divine_fever: bool = false
 var artillery_timer: float = 0.0
 
-# Phase 5 Relic State Tracking
-var cleopatra_asp_used: bool = false
-var tesla_magnet_timer: float = 0.0
-
-# Passive: Zealot's Faith tracker
-var zealot_emergency_triggered: bool = false
-var emergency_shield_timer: float = 0.0
-
 # In-Run Power-Up State
 var in_run_magnet_timer: float = 0.0
 var has_chrono_shield: bool = false
@@ -156,6 +148,7 @@ func _ready() -> void:
 	_setup_camera()
 	_setup_ability_visuals()
 	_setup_dust_particles()
+	_setup_obstacle_hurtbox()
 
 	if GameManager:
 		GameManager.game_over.connect(_on_game_over)
@@ -428,14 +421,9 @@ func _physics_process(delta: float) -> void:
 		if slide_timer <= 0.0:
 			_end_slide()
 
-	if emergency_shield_timer > 0.0:
-		emergency_shield_timer -= delta
-		if emergency_shield_timer <= 0.0:
-			is_invulnerable = false
-
 	if invulnerable_timer > 0.0:
 		invulnerable_timer -= delta
-		if invulnerable_timer <= 0.0 and emergency_shield_timer <= 0.0 and chariot_boost_timer <= 0.0:
+		if invulnerable_timer <= 0.0 and chariot_boost_timer <= 0.0:
 			is_invulnerable = false
 
 	# Power-Up Countdown Timers
@@ -541,34 +529,107 @@ func _physics_process(delta: float) -> void:
 			artillery_timer = 0.6
 			_execute_artillery_strike()
 
-	# Process Active Magnetism (Harriet, Fever, Tesla Watch, or In-Run Magnet)
-	if has_magnet_active or is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0 or in_run_magnet_timer > 0.0:
-		if tesla_magnet_timer > 0.0:
-			tesla_magnet_timer -= delta
+	# Process Active Magnetism (Harriet, Fever, or In-Run Magnet)
+	if has_magnet_active or is_peasant_fever or is_divine_fever or in_run_magnet_timer > 0.0:
 		_process_magnetism(delta)
 
 	_check_collisions()
 
 
+func _setup_obstacle_hurtbox() -> void:
+	var detector: Area3D = Area3D.new()
+	detector.name = "ObstacleHurtbox"
+	var det_col: CollisionShape3D = CollisionShape3D.new()
+	var det_shape: CapsuleShape3D = CapsuleShape3D.new()
+	det_shape.radius = 0.36
+	det_shape.height = 1.6
+	det_col.shape = det_shape
+	det_col.position = Vector3(0.0, 0.85, 0.0)
+	detector.add_child(det_col)
+	detector.body_entered.connect(_on_hurtbox_body_entered)
+	add_child(detector)
 
-## Activates Tesla's Pocket Watch 3.0s magnetism burst.
-func activate_tesla_magnet(duration: float = 3.0) -> void:
-	tesla_magnet_timer = duration
-	print("[Relic: Tesla's Pocket Watch] Activated %.1fs magnetism burst!" % duration)
+
+func _on_hurtbox_body_entered(body: Node3D) -> void:
+	if GameManager.is_game_over:
+		return
+	var obs: Node3D = null
+	if body.is_in_group("obstacles") or body.name.begins_with("Obstacle") or "WoodFire" in body.name or "FireBody" in body.name:
+		obs = body
+	elif body.get_parent() and (body.get_parent().is_in_group("obstacles") or body.get_parent().name.begins_with("Obstacle") or "WoodFire" in body.get_parent().name):
+		obs = body.get_parent() as Node3D
+
+	if obs:
+		if is_sliding and (obs.name.begins_with("Obstacle_HighArch") or "HighArch" in obs.name):
+			return
+		_handle_obstacle_collision(obs, body.name)
+
+
+func _check_collisions() -> void:
+	for i in range(get_slide_collision_count()):
+		var collision: KinematicCollision3D = get_slide_collision(i)
+		var collider: Object = collision.get_collider()
+		if not collider:
+			continue
+
+		var obs_target: Node3D = null
+		if collider is Node:
+			if collider.is_in_group("obstacles") or collider.name.begins_with("Obstacle") or "WoodFire" in collider.name or "FireBody" in collider.name:
+				obs_target = collider as Node3D
+			elif collider.get_parent() and (collider.get_parent().is_in_group("obstacles") or collider.get_parent().name.begins_with("Obstacle") or "WoodFire" in collider.get_parent().name):
+				obs_target = collider.get_parent() as Node3D
+
+		if obs_target:
+			if is_sliding and (obs_target.name.begins_with("Obstacle_HighArch") or "HighArch" in obs_target.name):
+				continue
+			_handle_obstacle_collision(obs_target, collider.name)
+			break
+
+
+func _handle_obstacle_collision(obs: Node3D, collider_name: String) -> void:
+	if GameManager.is_game_over:
+		return
+
+	# In-Run Chariot Boost or Peasant Fever: Smash right through!
+	if chariot_boost_timer > 0.0 or is_peasant_fever:
+		_smash_obstacle(obs)
+		_spawn_floating_text("💥 SMASH! +50", Color(1.0, 0.85, 0.2))
+		return
+
+	if is_invulnerable:
+		_pulse_shield_impact()
+		return
+
+	if is_ghost_mode:
+		return
+
+	if has_divine_aura:
+		_transmute_obstacle(obs)
+		return
+
+	# In-Run Chrono-Shield Protection: Absorbs hit and saves the run!
+	if has_chrono_shield:
+		has_chrono_shield = false
+		_trigger_shield_break(obs)
+		return
+
+	var reason: String = "Crashed into %s" % (obs.name if obs else collider_name)
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sfx_crash()
+	GameManager.trigger_game_over(reason)
 
 
 ## Pulls relevant collectibles toward player based on active state.
 func _process_magnetism(delta: float) -> void:
-	var radius: float = FEVER_MAGNET_RADIUS if (is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0) else MAGNET_RADIUS
-	var speed: float = FEVER_MAGNET_SPEED if (is_peasant_fever or is_divine_fever or tesla_magnet_timer > 0.0) else MAGNET_PULL_SPEED
+	var radius: float = FEVER_MAGNET_RADIUS if (is_peasant_fever or is_divine_fever) else MAGNET_RADIUS
+	var speed: float = FEVER_MAGNET_SPEED if (is_peasant_fever or is_divine_fever) else MAGNET_PULL_SPEED
 
 	for node in get_tree().root.find_children("*", "Area3D", true, false):
 		if node is CollectibleScript and not node.is_collected:
-			if tesla_magnet_timer <= 0.0:
-				if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
-					continue
-				if is_divine_fever and node.get("type") != CollectibleScript.CollectibleType.GOVT_CROWN:
-					continue
+			if is_peasant_fever and node.get("type") != CollectibleScript.CollectibleType.PEOPLE_FIST:
+				continue
+			if is_divine_fever and node.get("type") != CollectibleScript.CollectibleType.GOVT_CROWN:
+				continue
 
 			var dist: float = global_position.distance_to(node.global_position)
 			if dist <= radius:
@@ -582,69 +643,6 @@ func _execute_artillery_strike() -> void:
 		var dz: float = node.global_position.z - global_position.z
 		if dz < -5.0 and dz > -35.0:
 			_transmute_obstacle(node as Node3D)
-
-
-func _check_collisions() -> void:
-	for i in range(get_slide_collision_count()):
-		var collision: KinematicCollision3D = get_slide_collision(i)
-		var collider: Object = collision.get_collider()
-
-		if collider and (collider.is_in_group("obstacles") or collider.name.begins_with("Obstacle")):
-			# If sliding, glide safely underneath high arch obstacles
-			if is_sliding and (collider.name.begins_with("Obstacle_HighArch") or "HighArch" in collider.name):
-				continue
-
-			# In-Run Chariot Boost or Peasant Fever: Smash right through!
-			if chariot_boost_timer > 0.0 or is_peasant_fever:
-				_smash_obstacle(collider as Node3D)
-				_spawn_floating_text("💥 SMASH! +50", Color(1.0, 0.85, 0.2))
-				continue
-
-			if is_invulnerable:
-				_pulse_shield_impact()
-				continue
-
-			if is_ghost_mode:
-				continue
-
-			if has_divine_aura:
-				_transmute_obstacle(collider as Node3D)
-				continue
-
-			# In-Run Chrono-Shield Protection: Absorbs hit and saves the run!
-			if has_chrono_shield:
-				has_chrono_shield = false
-				_trigger_shield_break(collider as Node3D)
-				continue
-
-			# Relic Perk: Cleopatra's Asp
-			if has_node("/root/SaveManager"):
-				var sm = get_node("/root/SaveManager")
-				if sm.is_relic_equipped("cleopatra_asp") and not cleopatra_asp_used:
-					cleopatra_asp_used = true
-					_trigger_cleopatra_asp()
-					continue
-
-			var reason: String = "Crashed into %s" % collider.name
-			if has_node("/root/AudioManager"):
-				get_node("/root/AudioManager").play_sfx_crash()
-			GameManager.trigger_game_over(reason)
-			break
-
-
-
-## Cleopatra's Asp: Emergency revival resetting meters to 50/50 with 3.5s invulnerability.
-func _trigger_cleopatra_asp() -> void:
-	GameManager.people_power = 50.0
-	GameManager.govt_power = 50.0
-	GameManager.power_changed.emit(50.0, 50.0)
-	emergency_shield_timer = 3.5
-	is_invulnerable = true
-	shield_mesh.visible = true
-	shield_mesh.material_override.albedo_color = Color(0.2, 0.95, 0.45, 0.6)
-	shield_mesh.material_override.emission = Color(0.2, 0.9, 0.4)
-	if GameManager:
-		GameManager.decision_notification.emit("🐍 CLEOPATRA'S ASP: Fatal collapse averted! Meters stabilized at 50%!")
 
 
 func _smash_obstacle(obstacle: Node3D) -> void:
@@ -765,20 +763,8 @@ func _on_ability_deactivated(_character: Resource) -> void:
 		character_sprite.modulate = char_data["modulate"]
 
 
-func _on_power_changed(people: float, govt: float) -> void:
-	if not CharacterManager or not CharacterManager.active_character:
-		return
-
-	if CharacterManager.active_character.get("passive_perk_type") == "zealots_faith":
-		if (people < 15.0 or govt < 15.0) and not zealot_emergency_triggered:
-			zealot_emergency_triggered = true
-			emergency_shield_timer = 4.0
-			is_invulnerable = true
-			invulnerable_timer = 4.0
-			if GameManager:
-				GameManager.decision_notification.emit("⚔️ ZEALOT'S FAITH: Emergency 4s Invincibility!")
-		elif people >= 25.0 and govt >= 25.0:
-			zealot_emergency_triggered = false
+func _on_power_changed(_people: float, _govt: float) -> void:
+	pass
 
 
 
@@ -965,24 +951,27 @@ func _update_dynamic_camera(delta: float) -> void:
 		target_fov += 4.0
 	camera.fov = lerpf(camera.fov, target_fov, 3.5 * delta)
 
-	# 2. Footstep micro-bobbing synchronized with running stride and landing dip
+	# 2. Ground-stabilized camera: Keeps camera height steady during jumps
+	# Compensates for player's vertical jump position.y so runner visibly leaps into frame
+	# while boulevard, obstacles, and horizon dome remain rock-solid and stable.
 	var base_cam_y: float = 2.85 + landing_dip_offset
 	landing_dip_offset = lerpf(landing_dip_offset, 0.0, 8.0 * delta)
 
+	var target_cam_y: float = base_cam_y - position.y * 0.85
 	if (is_on_floor() or position.y < 0.15) and not is_sliding and not GameManager.is_game_over:
-		camera.position.y = base_cam_y + sin(run_anim_time * 2.0) * 0.025
+		camera.position.y = target_cam_y + sin(run_anim_time * 2.0) * 0.025
 	else:
-		camera.position.y = lerpf(camera.position.y, base_cam_y, 6.0 * delta)
+		camera.position.y = lerpf(camera.position.y, target_cam_y, 14.0 * delta)
 
 	# 3. Dynamic banking roll when switching lanes
 	camera.rotation.z = lerpf(camera.rotation.z, banking_tilt * 0.45, 8.0 * delta)
 
-	# 4. Camera Trauma Shake (Close calls, collisions, boosts)
+	# 4. Camera Trauma Shake (Subtle, non-disruptive micro-shake)
 	if camera_trauma > 0.0:
 		var shake_amount = camera_trauma * camera_trauma
-		camera.h_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.14
-		camera.v_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.14
-		camera_trauma = maxf(0.0, camera_trauma - delta * 2.2)
+		camera.h_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.035
+		camera.v_offset = (randf() * 2.0 - 1.0) * shake_amount * 0.035
+		camera_trauma = maxf(0.0, camera_trauma - delta * 2.5)
 	else:
 		camera.h_offset = 0.0
 		camera.v_offset = 0.0
@@ -1083,14 +1072,14 @@ func _check_close_calls(_delta: float) -> void:
 func _trigger_close_call() -> void:
 	if has_node("/root/AudioManager"):
 		get_node("/root/AudioManager").play_sfx_close_call()
-	camera_trauma = minf(camera_trauma + 0.22, 0.55)
+	camera_trauma = minf(camera_trauma + 0.12, 0.35)
 	GameManager.add_people_power(1.5)
 	GameManager.add_govt_power(1.5)
 	_spawn_floating_text("⚡ CLOSE CALL! +50", Color(1.0, 0.9, 0.2))
 
 
 func trigger_combo_popup(combo: int) -> void:
-	camera_trauma = minf(camera_trauma + 0.15, 0.4)
+	camera_trauma = minf(camera_trauma + 0.08, 0.25)
 	_spawn_floating_text("🔥 %dx STREAK!" % combo, Color(1.0, 0.45, 0.1))
 
 

@@ -10,9 +10,9 @@ base_speed_modifier = 1.05
 active_ability_name = "Divine Aura"
 active_duration = 1.5
 active_cooldown = 22.0
-passive_perk_type = "zealots_faith"
+passive_perk_type = "holy_fervor"
 ability_description = "Radiates holy light; turns incoming hazards into gold relics for 1.5s."
 
-passive_description = "Zealot's Faith: Automatically triggers a 4s emergency shield if either meter drops below 15%."
+passive_description = "Holy Fervor: Collectibles award +25% bonus score with a 20% wider pickup radius."
 theme_color = Color(0.95, 0.85, 0.2, 1)
 difficulty_rating = "Medium / Recovery"

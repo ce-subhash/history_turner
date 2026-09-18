@@ -60,8 +60,8 @@ const LOCKED_RULERS = {
 # --- State Data Structure ---
 var save_data: Dictionary = {
 	"unlocked_characters": ["Caesar", "JoanOfArc", "HarrietTubman"],
-	"unlocked_relics": ["cleopatra_asp", "napoleon_telescope", "tesla_watch"],
-	"equipped_relics": ["cleopatra_asp", "napoleon_telescope"],
+	"unlocked_relics": [],
+	"equipped_relics": [],
 	"unlocked_timeline_cards": [],
 	"total_relics_collected": 0,
 	"best_distance": 0,
@@ -188,9 +188,8 @@ func unequip_relic(relic_id: String) -> bool:
 
 
 ## Checks if a specific relic is currently active in the runner loadout.
-func is_relic_equipped(relic_id: String) -> bool:
-	var equipped: Array = save_data.get("equipped_relics", [])
-	return equipped.has(relic_id)
+func is_relic_equipped(_relic_id: String) -> bool:
+	return false
 
 
 ## Increments a tracked progression stat and checks for ruler milestone unlocks.
