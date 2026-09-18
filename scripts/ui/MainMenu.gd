@@ -11,7 +11,6 @@ extends Control
 @onready var era_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/EraLabel
 @onready var ability_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/AbilityLabel
 @onready var passive_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/PassiveLabel
-@onready var relics_label: Label = $MainMargin/VBox/ShowcasePanel/Margin/Content/RelicsLabel
 
 var _pulse_tween: Tween
 
@@ -88,18 +87,6 @@ func _update_loadout_preview() -> void:
 			"railroad_spirit":
 				perk_desc = "Railroad Spirit: +20% Relic Magnetism"
 		passive_label.text = "Passive: %s" % perk_desc
-
-	var sm = get_node_or_null("/root/SaveManager")
-	if sm:
-		var equipped: Array = sm.save_data.get("equipped_relics", [])
-		var relic_names: Array = []
-		for r in equipped:
-			if sm.RELIC_CATALOG.has(r):
-				relic_names.append(sm.RELIC_CATALOG[r]["icon"] + " " + sm.RELIC_CATALOG[r]["name"])
-		if relic_names.size() > 0:
-			relics_label.text = " | ".join(relic_names)
-		else:
-			relics_label.text = "None Equipped"
 
 
 func _on_start_run_pressed() -> void:

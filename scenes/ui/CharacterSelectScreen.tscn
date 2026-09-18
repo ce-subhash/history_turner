@@ -27,16 +27,49 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_deploy"]
-bg_color = Color(0.15, 0.65, 0.35, 1)
+bg_color = Color(0.12, 0.65, 0.32, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 4
+border_color = Color(0.45, 0.95, 0.65, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0.05, 0.5, 0.25, 0.45)
+shadow_size = 12
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_deploy_hover"]
+bg_color = Color(0.16, 0.78, 0.38, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 4
+border_color = Color(0.7, 1.0, 0.8, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0.12, 0.82, 0.4, 0.6)
+shadow_size = 18
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_deploy_pressed"]
+bg_color = Color(0.08, 0.50, 0.24, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.4, 0.95, 0.6, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_color = Color(0.35, 0.8, 0.5, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
 
 [node name="CharacterSelectScreen" type="Control"]
 layout_mode = 3
@@ -81,7 +114,7 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 22
-text = "SELECT RULER & LOADOUT"
+text = "SELECT RULER"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="Header/HBox"]
@@ -132,6 +165,7 @@ theme_override_constants/v_separation = 10
 columns = 2
 
 [node name="ChibiBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -140,53 +174,36 @@ text = "Chibi Leader
 (Republic)"
 
 [node name="CaesarBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "Julius Caesar\n(Rome)"
+text = "Julius Caesar
+(Rome)"
 
 [node name="JoanBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "Joan of Arc\n(France)"
+text = "Joan of Arc
+(France)"
 
 [node name="HarrietBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "Harriet Tubman\n(Railroad)"
-
-[node name="NapoleonBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "🔒 Napoleon\n(5 Caesar Gates)"
-
-[node name="CleopatraBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "🔒 Cleopatra\n(50 Favor Tokens)"
-
-[node name="NobunagaBtn" type="Button" parent="MainLayout/RosterPanel/Margin/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-text = "🔒 Nobunaga\n(1 Boss Defeated)"
+text = "Harriet Tubman
+(Railroad)"
 
 [node name="DetailsPanel" type="PanelContainer" parent="MainLayout"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="Margin" type="MarginContainer" parent="MainLayout/DetailsPanel"]
@@ -232,60 +249,14 @@ text = "Passive: Pax Romana (Govt decay reduced by 15%)"
 autowrap_mode = 2
 
 [node name="DeployButton" type="Button" parent="MainLayout/DetailsPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_y = 2
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
 theme_override_styles/normal = SubResource("StyleBoxFlat_deploy")
+theme_override_styles/hover = SubResource("StyleBoxFlat_deploy_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_deploy_pressed")
 text = "⚡ DEPLOY TO TIMELINE"
-
-[node name="RelicsPanel" type="PanelContainer" parent="MainLayout"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
-
-[node name="Margin" type="MarginContainer" parent="MainLayout/RelicsPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="VBox" type="VBoxContainer" parent="MainLayout/RelicsPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SectionTitle" type="Label" parent="MainLayout/RelicsPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.35, 0.8, 1, 1)
-theme_override_font_sizes/font_size = 17
-text = "EQUIPPABLE RELICS"
-horizontal_alignment = 1
-
-[node name="RelicLimitLabel" type="Label" parent="MainLayout/RelicsPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.8, 0.2, 1)
-theme_override_font_sizes/font_size = 13
-text = "Equipped Relics: 2 / 2"
-horizontal_alignment = 1
-
-[node name="RelicList" type="VBoxContainer" parent="MainLayout/RelicsPanel/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 16
-
-[node name="AspCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-button_pressed = true
-text = "🐍 Cleopatra's Asp\n   Prevents 1 fatal collapse"
-
-[node name="TelescopeCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-button_pressed = true
-text = "🔭 Napoleon's Telescope\n   +30% Decision Gate Slowdown"
-
-[node name="WatchCheck" type="CheckBox" parent="MainLayout/RelicsPanel/Margin/VBox/RelicList"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "⏱️ Tesla's Pocket Watch\n   3s Magnetism after Gates"

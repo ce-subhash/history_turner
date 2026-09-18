@@ -327,6 +327,29 @@ func _ready() -> void:
 	assert(menu_margin != null, "MainMargin must exist on MainMenu")
 	assert(menu_margin.get_theme_constant("margin_top") >= 56, "MainMargin must adapt to safe area on mobile")
 	menu_inst.queue_free()
+
+	# Test CharacterSelectScreen: verify only characters with full sprites exist in the selection grid
+	var charselect_scn = load("res://scenes/ui/CharacterSelectScreen.tscn")
+	assert(charselect_scn != null, "CharacterSelectScreen.tscn must load")
+	var charselect_inst = charselect_scn.instantiate()
+	add_child(charselect_inst)
+	var roster_grid = charselect_inst.get_node_or_null("MainLayout/RosterPanel/Margin/VBox/Grid")
+	assert(roster_grid != null, "Roster Grid must exist in CharacterSelectScreen")
+	var roster_buttons: Array = []
+	for child in roster_grid.get_children():
+		roster_buttons.append(child.name)
+	assert(roster_buttons.has("ChibiBtn"), "ChibiBtn must be in roster")
+	assert(roster_buttons.has("CaesarBtn"), "CaesarBtn must be in roster")
+	assert(roster_buttons.has("JoanBtn"), "JoanBtn must be in roster")
+	assert(roster_buttons.has("HarrietBtn"), "HarrietBtn must be in roster")
+	assert(not roster_buttons.has("NapoleonBtn"), "NapoleonBtn must be removed (no sprites)")
+	assert(not roster_buttons.has("CleopatraBtn"), "CleopatraBtn must be removed (no sprites)")
+	assert(not roster_buttons.has("NobunagaBtn"), "NobunagaBtn must be removed (no sprites)")
+	assert(roster_buttons.size() == 4, "Only 4 playable characters with sprites should be in selection menu")
+	assert(charselect_inst.get_node_or_null("MainLayout/RelicsPanel") == null, "RelicsPanel must be removed from CharacterSelectScreen")
+	charselect_inst.queue_free()
+	print("✔ Character selection menu verified (only characters with sprites: Chibi, Caesar, Joan, Harriet; RelicsPanel removed).")
+
 	print("✔ Mobile screen scaling, elevated camera zoom (Z=3.8m, Y=2.85m, FOV=55°), hidden pause button & ring cleanup verified.")
 
 
