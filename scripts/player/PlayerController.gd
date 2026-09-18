@@ -44,7 +44,7 @@ const CHARACTER_SPRITES = {
 		"light_energy": 2.8,
 		"light_range": 11.0,
 		"light_offset": Vector3(0.0, 1.7, 0.0),
-		"base_y": 0.84
+		"base_y": 0.80
 	},
 	"Harriet Tubman": {
 		"run1": preload("res://assets/sprites/characters/harriet_rear_run1.png"),
